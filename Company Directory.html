@@ -688,6 +688,118 @@ const SFX = (() => {
   };
 })();
 
+function SpaceInvadersGame({ width, height }) {
+  const canvasRef = useRef(null);
+  const gameRef = useRef(null);
+  const [active, setActive] = useState(false);
+  const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    if (!active || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const game = {
+      player: { x: W/2, w: 24, bullets: [] },
+      invaders: [],
+      dir: 1, moveTimer: 0, moveInterval: 30, dropBombs: [],
+      alive: true, score: 0, frame: 0,
+    };
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 8; col++) {
+        game.invaders.push({ x: 30 + col * 28, y: 30 + row * 22, row, alive: true });
+      }
+    }
+    gameRef.current = game;
+
+    const keys = {};
+    const onKey = (e) => { keys[e.key] = e.type === 'keydown'; if (['ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault(); };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+
+    const loop = () => {
+      if (!game.alive) { ctx.fillStyle='#fff'; ctx.font='14px Space Mono'; ctx.textAlign='center'; ctx.fillText('GAME OVER', W/2, H/2); ctx.fillText(`Score: ${game.score}`, W/2, H/2+20); return; }
+      game.frame++;
+      if (keys['ArrowLeft'] || keys['a']) game.player.x = Math.max(12, game.player.x - 3);
+      if (keys['ArrowRight'] || keys['d']) game.player.x = Math.min(W - 12, game.player.x + 3);
+      if ((keys[' '] || keys['ArrowUp']) && game.player.bullets.length < 3) {
+        if (!game._lastShot || game.frame - game._lastShot > 8) {
+          game.player.bullets.push({ x: game.player.x, y: H - 26 });
+          game._lastShot = game.frame;
+          if (!SFX.muted) { try { const c = new (window.AudioContext||window.webkitAudioContext)(); const o=c.createOscillator(); const g=c.createGain(); o.connect(g);g.connect(c.destination); o.type='square';o.frequency.setValueAtTime(880,c.currentTime);o.frequency.exponentialRampToValueAtTime(220,c.currentTime+0.05);g.gain.setValueAtTime(0.06,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.06);o.start();o.stop(c.currentTime+0.06); } catch(e){} }
+        }
+      }
+      game.player.bullets = game.player.bullets.filter(b => { b.y -= 5; return b.y > 0; });
+      game.moveTimer++;
+      if (game.moveTimer >= game.moveInterval) {
+        game.moveTimer = 0;
+        let hitEdge = false;
+        game.invaders.filter(inv => inv.alive).forEach(inv => {
+          inv.x += game.dir * 10;
+          if (inv.x > W - 20 || inv.x < 10) hitEdge = true;
+        });
+        if (hitEdge) {
+          game.dir *= -1;
+          game.invaders.filter(inv => inv.alive).forEach(inv => { inv.y += 12; });
+        }
+        if (Math.random() < 0.3) {
+          const alive = game.invaders.filter(inv => inv.alive);
+          if (alive.length) { const r = alive[Math.floor(Math.random()*alive.length)]; game.dropBombs.push({ x: r.x, y: r.y+10 }); }
+        }
+      }
+      game.dropBombs = game.dropBombs.filter(b => { b.y += 2.5; return b.y < H; });
+      game.dropBombs.forEach(b => { if (Math.abs(b.x - game.player.x) < 12 && b.y > H - 24) game.alive = false; });
+      game.player.bullets.forEach(b => {
+        game.invaders.filter(inv => inv.alive).forEach(inv => {
+          if (Math.abs(b.x - inv.x) < 10 && Math.abs(b.y - inv.y) < 8) {
+            inv.alive = false; b.y = -99; game.score += 10; setScore(game.score);
+            if (!SFX.muted) { try { const c = new (window.AudioContext||window.webkitAudioContext)(); const o=c.createOscillator(); const g=c.createGain(); o.connect(g);g.connect(c.destination); o.type='sawtooth';o.frequency.setValueAtTime(200,c.currentTime);o.frequency.exponentialRampToValueAtTime(80,c.currentTime+0.08);g.gain.setValueAtTime(0.08,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);o.start();o.stop(c.currentTime+0.1); } catch(e){} }
+          }
+        });
+      });
+      if (game.invaders.filter(inv => inv.alive).some(inv => inv.y > H - 30)) game.alive = false;
+      if (!game.invaders.some(inv => inv.alive)) {
+        for (let row = 0; row < 5; row++) for (let col = 0; col < 8; col++) game.invaders.push({ x: 30 + col * 28, y: 30 + row * 22, row, alive: true });
+        game.moveInterval = Math.max(10, game.moveInterval - 5);
+      }
+
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#4f4'; ctx.fillRect(game.player.x - 8, H - 18, 16, 10);
+      ctx.fillRect(game.player.x - 2, H - 24, 4, 8);
+      ctx.fillStyle = '#4f4'; game.player.bullets.forEach(b => ctx.fillRect(b.x - 1, b.y, 2, 6));
+      const invColors = ['#f44','#fa0','#ff0','#0f0','#0ff'];
+      game.invaders.filter(inv => inv.alive).forEach(inv => {
+        ctx.fillStyle = invColors[inv.row % 5];
+        const px = 3;
+        const sprites = [[0,1,1,1,0],[1,1,1,1,1],[1,0,1,0,1]];
+        sprites.forEach((row, ry) => row.forEach((on, rx) => { if (on) ctx.fillRect(inv.x - 6 + rx*px, inv.y - 4 + ry*px, px-1, px-1); }));
+      });
+      ctx.fillStyle = '#f66'; game.dropBombs.forEach(b => ctx.fillRect(b.x-1, b.y, 2, 6));
+      ctx.fillStyle = '#555'; ctx.fillRect(0, H-6, W, 6);
+      ctx.fillStyle = '#fff'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.fillText(`SCORE: ${game.score}`, 4, 10);
+      game._raf = requestAnimationFrame(loop);
+    };
+    game._raf = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(game._raf); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKey); };
+  }, [active]);
+
+  if (!active) {
+    return (
+      <div onClick={(e) => { e.stopPropagation(); setActive(true); }} style={{ width:'100%', height:'100%', background:'#000', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:8 }}>
+        <div style={{ fontSize:14, color:'#4f4', fontFamily:'Space Mono,monospace' }}>SPACE INVADERS</div>
+        <div style={{ fontSize:9, color:'#4a4', fontFamily:'Space Mono,monospace' }}>[ CLICK TO PLAY ]</div>
+        <div style={{ fontSize:8, color:'#343', fontFamily:'Space Mono,monospace', marginTop:4 }}>← → to move, SPACE to shoot</div>
+      </div>
+    );
+  }
+
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{ width:'100%', height:'100%', background:'#000', position:'relative' }}>
+      <canvas ref={canvasRef} width={Math.floor(width)} height={Math.floor(height)} style={{ width:'100%', height:'100%', display:'block' }} />
+    </div>
+  );
+}
+
 function Viz_Treemap() {
   const groups = useMemo(() => buildGroups(), []);
   const [path, setPath] = useState([]);
@@ -730,10 +842,12 @@ function Viz_Treemap() {
 
   const currentData = useMemo(() => {
     if (path.length === 0) {
-      return filteredGroups.map((g, i) => ({
+      const tiles = filteredGroups.map((g, i) => ({
         name: g.name, value: g.companies.length, color: NEON_COLORS[i % NEON_COLORS.length],
         categories: g.categories, companies: g.companies,
       }));
+      tiles.push({ name: '__game__', value: 120, color: '#4f4', isGame: true });
+      return tiles;
     }
     if (path.length === 1) {
       const group = filteredGroups.find(g => g.name === path[0]);
@@ -831,6 +945,17 @@ function Viz_Treemap() {
       <div style={{ flex:1, position:'relative', overflow:'hidden', background:'#0a1628' }}>
         <div style={{ position:'absolute', inset:0, background:'#0a1628' }} />
         {rects.map((rect) => {
+          if (rect.isGame) {
+            return (
+              <div key="__game__" style={{
+                position:'absolute', left: rect.x + GAP/2, top: rect.y + GAP/2,
+                width: rect.w - GAP, height: rect.h - GAP,
+                border:'1px solid #4f4', borderRadius:2, overflow:'hidden',
+              }}>
+                <SpaceInvadersGame width={rect.w - GAP - 2} height={rect.h - GAP - 2} />
+              </div>
+            );
+          }
           const isHov = hovered === rect.name;
           const color = rect.color;
           const isCompanyLevel = path.length === 2;
@@ -1079,7 +1204,7 @@ const VIEWS = [
 function SegmentToggle({ active, onChange }) {
   return (
     <div style={{
-      position:'fixed', bottom:20, right:20, zIndex:900,
+      position:'fixed', bottom:20, left:20, zIndex:900,
       display:'flex', background:'rgba(30,30,30,0.85)', borderRadius:8,
       border:'1px solid rgba(255,255,255,0.1)', backdropFilter:'blur(16px)',
       WebkitBackdropFilter:'blur(16px)', padding:3,
