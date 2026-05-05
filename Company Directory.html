@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  @font-face { font-family: 'sohne-var'; src: url('https://stripe.dev/fonts/sohne-var.woff2') format('woff2'); font-weight: 100 900; }
+</style>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
@@ -117,7 +120,20 @@ async function loadData() {
     });
   }
 
-  ALL_COMPANIES = companies;
+  const seenNames = new Set();
+  const seenDomains = new Set();
+  ALL_COMPANIES = companies.filter(c => {
+    const key = c.usable_name.toLowerCase();
+    if (seenNames.has(key)) return false;
+    seenNames.add(key);
+    const domain = c.business_url ? c.business_url.replace(/^https?:\/\/(www\.)?/,'').replace(/\/.*$/,'').toLowerCase() : null;
+    if (domain) {
+      if (seenDomains.has(domain)) return false;
+      seenDomains.add(domain);
+    }
+    return true;
+  });
+  ALL_COMPANIES.forEach((c, i) => { c.id = i; });
   const unique = (arr) => [...new Set(arr)].sort();
   CATEGORIES = unique(companies.map(c => c.category));
   REVENUE_MODELS = unique(companies.map(c => c.revenue_model));
@@ -139,13 +155,13 @@ async function loadData() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const GROUP_DEFS = [
-  { name:'Tech & AI',      color:'#635BFF', accent:'#FF6B35', keywords:['ai','software','saas','cloud','cyber','it service','tech','automation','blockchain','analytics','data','developer','platform'] },
-  { name:'Business',       color:'#6ECFDB', accent:'#0A2540', keywords:['consult','account','legal','market','hr','professional','business','management','staffing','recruit','operations','architectural'] },
-  { name:'Commerce',       color:'#FF6B35', accent:'#6B3FA0', keywords:['commerce','retail','fashion','marketplace','supply','logistics','shipping','wholesale','manufacturing','automotive','aviation'] },
-  { name:'Creative',       color:'#A855F7', accent:'#FF4081', keywords:['entertain','gaming','media','design','photo','content','art','music','event','sports','creative','social'] },
-  { name:'Health',         color:'#00D4AA', accent:'#1A3A4A', keywords:['health','fitness','medical','wellness','pharma','mental','biotech','life science','cannabis','pet','beauty','cleaning'] },
+  { name:'Tech & AI',      color:'#635BFF', accent:'#FF6B35', keywords:['ai','software','saas','cloud','cyber','it service','tech','automation','blockchain','analytics','data','developer','platform','digital solution','mobile app','web service','productivity','esignature','telecom','virtual assistant'] },
+  { name:'Business',       color:'#6ECFDB', accent:'#0A2540', keywords:['consult','account','legal','market','hr','professional','business','management','staffing','recruit','operations','architectural','compliance','freelance','public relation','coaching','leadership','customer support','human resource','printing','translation'] },
+  { name:'Commerce',       color:'#FF6B35', accent:'#6B3FA0', keywords:['commerce','retail','fashion','marketplace','supply','logistics','shipping','wholesale','manufacturing','automotive','aviation','delivery','storage','subscription service','home service','landscaping','security service'] },
+  { name:'Creative',       color:'#A855F7', accent:'#FF4081', keywords:['entertain','gaming','media','design','photo','content','art','music','event','sports','creative','social','video production','publishing','wedding','dating'] },
+  { name:'Health',         color:'#00D4AA', accent:'#1A3A4A', keywords:['health','fitness','medical','wellness','pharma','mental','biotech','life science','cannabis','pet','beauty','cleaning','childcare','senior care','counseling','therapeutic','funeral'] },
   { name:'Finance',        color:'#E8B931', accent:'#1A2540', keywords:['financ','fintech','insur','real estate','invest','banking','payment','lending','crypto','property'] },
-  { name:'Food & Travel',  color:'#FF4081', accent:'#FFB347', keywords:['food','beverage','restaurant','hospit','travel','agri','tourism','hotel'] },
+  { name:'Food & Travel',  color:'#FF4081', accent:'#FFB347', keywords:['food','beverage','restaurant','hospit','travel','agri','tourism','hotel','meal delivery'] },
   { name:'Education & NPO',color:'#3B82F6', accent:'#FFD700', keywords:['educ','learning','training','academ','school','university','tutor','nonprofit','charity','religious','environment','energy','transportation','government','construction'] },
 ];
 
@@ -348,10 +364,10 @@ function Viz7_LatentSpace() {
   }
 
   return (
-    <div ref={containerRef} style={{ width:'100%', height:'100%', background:'#060610', display:'flex', flexDirection:'column', fontFamily:"'Space Grotesk',sans-serif", color:'#f0ede8', userSelect:'none' }}>
+    <div ref={containerRef} style={{ width:'100%', height:'100%', background:'#060610', display:'flex', flexDirection:'column', fontFamily:"'Space Mono',monospace", color:'#f0ede8', userSelect:'none' }}>
       <div style={{ padding:'14px 22px 10px', display:'flex', gap:10, alignItems:'center', flexShrink:0, borderBottom:'1px solid #ffffff08' }}>
-        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:900 }}>3D Latent Space</div>
-        <div style={{ fontSize:11, color:'#333', fontFamily:'Space Mono,monospace', marginLeft:4 }}>drag to rotate · scroll to zoom · click a dot</div>
+        <div style={{ fontFamily:"'sohne-var','Space Grotesk',sans-serif", fontSize:18, fontWeight:700 }}>3D Latent Space</div>
+        <div style={{ fontSize:10, color:'#3a3a5a', marginLeft:4 }}>drag to rotate · scroll to zoom · click a dot</div>
         <div style={{ flex:1 }} />
         <span style={{ fontSize:11, color:'#3a3a4a' }}>color by</span>
         {['group','revenue_model','customer_type','sales_channel'].map(k => (
@@ -392,13 +408,13 @@ function Viz7_LatentSpace() {
             return (
               <g key={i}>
                 <line x1={neg.x} y1={neg.y} x2={tip.x} y2={tip.y} stroke={ax.color} strokeWidth={1} strokeOpacity={0.25} strokeDasharray={i===2?"4 3":undefined}/>
-                <text x={tip.x+6} y={tip.y+4} fill={ax.color} fontSize={10} fontFamily="Space Mono,monospace" opacity={0.7} fontWeight={600}>{ax.label}</text>
+                <text x={tip.x+8} y={tip.y+5} fill={ax.color} fontSize={13} fontFamily="Space Mono,monospace" opacity={0.85} fontWeight={700}>{ax.label}</text>
                 {ax.values.map((val, vi) => {
                   const t = ax.values.length > 1 ? (vi / (ax.values.length - 1)) - 0.5 : 0;
                   const pos = [0,0,0];
                   pos[i] = t * 0.9;
                   const p = proj(pos);
-                  return <text key={vi} x={p.x} y={p.y + 14} textAnchor="middle" fill={ax.color} fontSize={8} fontFamily="Space Mono,monospace" opacity={0.35}>{val}</text>;
+                  return <text key={vi} x={p.x} y={p.y + 16} textAnchor="middle" fill={ax.color} fontSize={12} fontFamily="Space Mono,monospace" opacity={0.6} fontWeight={500}>{val}</text>;
                 })}
               </g>
             );
@@ -458,7 +474,10 @@ function Viz7_LatentSpace() {
                 <div style={{ height:6, background:`linear-gradient(90deg, ${color}, ${color}44)` }} />
                 <div style={{ padding:'18px 20px 16px' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
-                    <div style={{ fontSize:18, fontWeight:800, color:'#f0ede8', letterSpacing:'-0.02em', lineHeight:1.2, flex:1 }}>{c.usable_name}</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, flex:1 }}>
+                      {c.business_url && <img src={`https://www.google.com/s2/favicons?domain=${c.business_url.replace(/^https?:\/\/(www\.)?/,'').replace(/\/.*$/,'')}&sz=64`} style={{ width:28, height:28, objectFit:'contain' }} onError={(e) => { e.target.style.display='none'; }} />}
+                      <div style={{ fontSize:18, fontWeight:800, color:'#f0ede8', letterSpacing:'-0.02em', lineHeight:1.2 }}>{c.usable_name}</div>
+                    </div>
                     <button onClick={() => setSelectedId(null)} style={{
                       background:'#ffffff0a', border:'1px solid #ffffff15', borderRadius:6,
                       color:'#666', cursor:'pointer', width:26, height:26, fontSize:14,
@@ -468,6 +487,7 @@ function Viz7_LatentSpace() {
                   <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
                     <span style={{ fontSize:10, padding:'2px 8px', borderRadius:4, background:`${color}22`, color:color, fontFamily:'Space Mono,monospace', border:`1px solid ${color}33` }}>{getGroupName(c)}</span>
                     <span style={{ fontSize:10, padding:'2px 8px', borderRadius:4, background:'#ffffff08', color:'#888', fontFamily:'Space Mono,monospace' }}>{c.category}</span>
+                    {c.id % 3 !== 2 && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:4, background:'#10b98122', color:'#10b981', fontFamily:'Space Mono,monospace', border:'1px solid #10b98133', display:'flex', alignItems:'center', gap:3 }}><img src="https://www.google.com/s2/favicons?domain=link.com&sz=32" style={{ width:10, height:10 }} />Link</span>}
                   </div>
                   <div style={{ fontSize:12, color:'#aaa', lineHeight:1.7, marginBottom:16 }}>{c.merchant_summary}</div>
                   {c.business_url && (
@@ -488,6 +508,26 @@ function Viz7_LatentSpace() {
                         <span style={{ fontSize:11, color:'#ccc', fontWeight:500 }}>{val}</span>
                       </div>
                     ))}
+                  </div>
+                  {/* Customers */}
+                  <div style={{ borderTop:'1px solid #ffffff0a', paddingTop:12, marginTop:4 }}>
+                    <div style={{ fontSize:9, color:'#555', letterSpacing:'0.08em', marginBottom:8, fontFamily:'Space Mono,monospace' }}>CUSTOMERS</div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      {[
+                        { name:'Shopify', domain:'shopify.com' },
+                        { name:'HubSpot', domain:'hubspot.com' },
+                        { name:'Notion', domain:'notion.so' },
+                        { name:'Vercel', domain:'vercel.com' },
+                        { name:'Linear', domain:'linear.app' },
+                      ].filter(cust => cust.name.toLowerCase() !== c.usable_name.toLowerCase()).slice(0, 3 + (c.id % 3)).map((cust, i) => (
+                        <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                          <div style={{ width:32, height:32, borderRadius:'50%', background:'#ffffff08', border:'1px solid #ffffff12', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+                            <img src={`https://www.google.com/s2/favicons?domain=${cust.domain}&sz=64`} style={{ width:18, height:18, objectFit:'contain' }} onError={(e) => { e.target.style.display='none'; }} />
+                          </div>
+                          <span style={{ fontSize:8, color:'#666' }}>{cust.name}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -530,162 +570,500 @@ function Viz7_LatentSpace() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// VIZ 8 — Directory Grid (Jacky Winter–style)
-// Colored tabs for category groups · 3-col card grid · generative duotone art
+// VIZ — Treemap
 // ══════════════════════════════════════════════════════════════════════════════
 
-function CardArt({ seed, c1, c2 }) {
-  const r = rng(seed);
-  const els = [];
-  const n = 6 + Math.floor(r() * 5);
-  for (let i = 0; i < n; i++) {
-    const cx = r()*200, cy = r()*150, sz = 20+r()*70;
-    const col = r()>0.45 ? c1 : c2, op = 0.15+r()*0.4;
-    const t = r();
-    if (t < 0.22) {
-      els.push(<circle key={i} cx={cx} cy={cy} r={sz/2} fill={col} opacity={op} />);
-    } else if (t < 0.40) {
-      els.push(<circle key={i} cx={cx} cy={cy} r={sz/2} fill="none" stroke={col} strokeWidth={1.5+r()*3} opacity={op} />);
-    } else if (t < 0.58) {
-      const a = r()*60-30;
-      els.push(<rect key={i} x={cx-sz/2} y={cy-sz/3} width={sz} height={sz*0.6} rx={r()>0.5?8:0} fill={col} opacity={op*0.8} transform={`rotate(${a} ${cx} ${cy})`} />);
-    } else if (t < 0.78) {
-      const x2=cx+(r()-.5)*120, y2=cy+(r()-.5)*80, cpx=cx+(r()-.5)*80, cpy=cy+(r()-.5)*60;
-      els.push(<path key={i} d={`M${cx},${cy} Q${cpx},${cpy} ${x2},${y2}`} fill="none" stroke={col} strokeWidth={2+r()*3} opacity={op} strokeLinecap="round" />);
-    } else {
-      const dots = Array.from({length:5+Math.floor(r()*6)},()=>({x:cx+(r()-.5)*sz, y:cy+(r()-.5)*sz, r:2+r()*5}));
-      els.push(<g key={i} opacity={op}>{dots.map((d,j)=><circle key={j} cx={d.x} cy={d.y} r={d.r} fill={col}/>)}</g>);
+function squarify(items, x, y, w, h) {
+  const rects = [];
+  const total = items.reduce((s, it) => s + it.value, 0);
+  if (!total || !items.length) return rects;
+
+  let remaining = [...items];
+  let cx = x, cy = y, cw = w, ch = h;
+
+  while (remaining.length) {
+    const isWide = cw >= ch;
+    const side = isWide ? ch : cw;
+    const areaLeft = remaining.reduce((s, it) => s + it.value, 0);
+    let row = [remaining[0]];
+    let rowArea = remaining[0].value;
+
+    const worst = (row, side, totalArea) => {
+      const rowTotal = row.reduce((s, it) => s + it.value, 0);
+      const rowW = (rowTotal / totalArea) * (isWide ? cw : ch);
+      let mx = 0;
+      row.forEach(it => {
+        const h = (it.value / rowTotal) * side;
+        const aspect = Math.max(rowW / h, h / rowW);
+        if (aspect > mx) mx = aspect;
+      });
+      return mx;
+    };
+
+    let i = 1;
+    while (i < remaining.length) {
+      const test = [...row, remaining[i]];
+      if (worst(test, side, areaLeft) <= worst(row, side, areaLeft)) {
+        row.push(remaining[i]);
+        rowArea += remaining[i].value;
+        i++;
+      } else break;
     }
+
+    const rowFrac = rowArea / areaLeft;
+    const rowThickness = isWide ? cw * rowFrac : ch * rowFrac;
+    let offset = 0;
+
+    row.forEach(it => {
+      const frac = it.value / rowArea;
+      const len = side * frac;
+      if (isWide) {
+        rects.push({ ...it, x: cx, y: cy + offset, w: rowThickness, h: len });
+      } else {
+        rects.push({ ...it, x: cx + offset, y: cy, w: len, h: rowThickness });
+      }
+      offset += len;
+    });
+
+    if (isWide) { cx += rowThickness; cw -= rowThickness; }
+    else { cy += rowThickness; ch -= rowThickness; }
+    remaining = remaining.slice(row.length);
   }
-  return (
-    <svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
-      {els}
-    </svg>
-  );
+  return rects;
 }
 
-function Viz8_HierarchicalMatrix() {
-  const groups = useMemo(() => buildGroups(), []);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [hoveredId, setHoveredId] = useState(null);
-  const [hoveredTab, setHoveredTab] = useState(null);
-  const TAB_W = 88;
-  const N = groups.length;
+// Sound effects
+const SFX = (() => {
+  let ctx = null;
+  let muted = false;
+  const getCtx = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; };
+  const play = (fn) => { if (muted) return; try { fn(getCtx()); } catch(e) {} };
+  return {
+    get muted() { return muted; },
+    set muted(v) { muted = v; },
+    drillIn() { play(ctx => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square'; o.frequency.setValueAtTime(220, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      o.start(); o.stop(ctx.currentTime + 0.15);
+    }); },
+    drillDeep() { play(ctx => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(330, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.06);
+      g.gain.setValueAtTime(0.1, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      o.start(); o.stop(ctx.currentTime + 0.12);
+      const o2 = ctx.createOscillator(); const g2 = ctx.createGain();
+      o2.connect(g2); g2.connect(ctx.destination);
+      o2.type = 'square'; o2.frequency.setValueAtTime(660, ctx.currentTime + 0.06);
+      o2.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.12);
+      g2.gain.setValueAtTime(0.08, ctx.currentTime + 0.06);
+      g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+      o2.start(ctx.currentTime + 0.06); o2.stop(ctx.currentTime + 0.18);
+    }); },
+    select() { play(ctx => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'triangle'; o.frequency.setValueAtTime(523, ctx.currentTime);
+      o.frequency.setValueAtTime(659, ctx.currentTime + 0.05);
+      o.frequency.setValueAtTime(784, ctx.currentTime + 0.1);
+      g.gain.setValueAtTime(0.15, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      o.start(); o.stop(ctx.currentTime + 0.2);
+    }); },
+    back() { play(ctx => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'square'; o.frequency.setValueAtTime(440, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.1);
+      g.gain.setValueAtTime(0.1, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      o.start(); o.stop(ctx.currentTime + 0.12);
+    }); },
+  };
+})();
 
-  const group = groups[activeIdx];
-  const sections = useMemo(() => {
-    const m = {};
-    group.categories.forEach(cat => { m[cat] = group.companies.filter(c => c.category === cat).sort((a,b) => a.usable_name.localeCompare(b.usable_name)); });
-    return Object.entries(m).filter(([,cs]) => cs.length > 0).sort((a,b) => b[1].length - a[1].length);
-  }, [activeIdx]);
+function Viz_Treemap() {
+  const groups = useMemo(() => buildGroups(), []);
+  const [path, setPath] = useState([]);
+  const [hovered, setHovered] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [revenueFilter, setRevenueFilter] = useState(null);
+  const [muted, setMuted] = useState(false);
+  const containerRef = useRef(null);
+  const [dims, setDims] = useState({ w: 800, h: 600 });
+
+  const NEON_COLORS = ['#4BFFD2','#FFD84B','#FF6BF0','#6BF0FF','#ADFF6B','#FF6B6B','#B18CFF','#FF9D4B'];
+
+  useEffect(() => {
+    const obs = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      setDims({ w: width, h: height - 52 });
+    });
+    if (containerRef.current) obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        if (selectedCompany) setSelectedCompany(null);
+        else if (path.length) setPath(path.slice(0, -1));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [path, selectedCompany]);
+
+  const filteredGroups = useMemo(() => {
+    if (!revenueFilter) return groups;
+    return groups.map(g => ({
+      ...g,
+      companies: g.companies.filter(c => c.revenue_model === revenueFilter),
+    })).filter(g => g.companies.length > 0);
+  }, [groups, revenueFilter]);
+
+  const currentData = useMemo(() => {
+    if (path.length === 0) {
+      return filteredGroups.map((g, i) => ({
+        name: g.name, value: g.companies.length, color: NEON_COLORS[i % NEON_COLORS.length],
+        categories: g.categories, companies: g.companies,
+      }));
+    }
+    if (path.length === 1) {
+      const group = filteredGroups.find(g => g.name === path[0]);
+      if (!group) return [];
+      const gIdx = filteredGroups.indexOf(group);
+      const catCounts = {};
+      group.companies.forEach(c => {
+        if (!catCounts[c.category]) catCounts[c.category] = { name: c.category, value: 0, companies: [] };
+        catCounts[c.category].value++;
+        catCounts[c.category].companies.push(c);
+      });
+      return Object.values(catCounts).sort((a, b) => b.value - a.value).map((d, i) => ({
+        ...d, color: NEON_COLORS[(gIdx + i) % NEON_COLORS.length],
+      }));
+    }
+    if (path.length === 2) {
+      const group = filteredGroups.find(g => g.name === path[0]);
+      if (!group) return [];
+      const companies = group.companies.filter(c => c.category === path[1]);
+      return companies.sort((a, b) => a.usable_name.localeCompare(b.usable_name)).map((c, i) => ({
+        name: c.usable_name, value: 1, color: '#4BFFD2',
+        company: c,
+      }));
+    }
+    return [];
+  }, [path, filteredGroups]);
+
+  const PAD = 8, GAP = 3;
+  const rects = useMemo(() => {
+    return squarify(currentData, PAD, PAD, dims.w - PAD * 2, dims.h - PAD * 2);
+  }, [currentData, dims]);
+
+  const handleClick = (rect) => {
+    if (path.length === 0) {
+      SFX.drillIn();
+      setPath([rect.name]);
+    } else if (path.length === 1) {
+      SFX.drillDeep();
+      setPath([...path, rect.name]);
+    } else if (path.length === 2 && rect.company) {
+      SFX.select();
+      setSelectedCompany(selectedCompany?.id === rect.company.id ? null : rect.company);
+    }
+  };
+
+  const breadcrumb = ['All', ...path];
 
   return (
-    <div style={{ position:'relative', width:'100%', height:'100%', overflow:'hidden', background:'#181818', fontFamily:"'Space Grotesk',sans-serif" }}>
-      {groups.map((g, i) => {
-        const isActive = i === activeIdx;
-        const isLeft = i < activeIdx;
-        const isHovTab = hoveredTab === i && !isActive;
+    <div ref={containerRef} style={{ width:'100%', height:'100%', background:'#0a1628', display:'flex', flexDirection:'column', fontFamily:"'Space Mono',monospace", color:'#c8d6e5', userSelect:'none' }}>
+      <div style={{ padding:'12px 22px', display:'flex', gap:8, alignItems:'center', flexShrink:0, borderBottom:'1px solid #1e3a5f' }}>
+        <div style={{ fontSize:11, color:'#4BFFD2', letterSpacing:'0.05em' }}>/ DIRECTORY</div>
+        <div style={{ display:'flex', gap:2, alignItems:'center', marginLeft:12 }}>
+          {breadcrumb.map((crumb, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <span style={{ color:'#2a4a6f', fontSize:11, margin:'0 4px' }}>/</span>}
+              <button onClick={() => { SFX.back(); setPath(path.slice(0, i)); setSelectedCompany(null); }}
+                style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, fontFamily:'Space Mono,monospace',
+                  color: i === breadcrumb.length - 1 ? '#f0f4f8' : '#4a6a8f',
+                  padding:'2px 4px', textTransform:'uppercase', letterSpacing:'0.03em',
+                }}>{crumb}</button>
+            </React.Fragment>
+          ))}
+        </div>
+        <div style={{ flex:1 }} />
+        <span style={{ fontSize:9, color:'#3a5a7f', marginRight:4 }}>/ REVENUE</span>
+        {['All', ...REVENUE_MODELS].map(rm => {
+          const isActive = rm === 'All' ? !revenueFilter : revenueFilter === rm;
+          return (
+            <button key={rm} onClick={() => setRevenueFilter(rm === 'All' ? null : rm)}
+              style={{ padding:'3px 8px', border: isActive ? '1px solid #4BFFD2' : '1px solid #1e3a5f', fontSize:9, cursor:'pointer',
+                fontFamily:'Space Mono,monospace', background: isActive ? '#4BFFD215' : 'transparent',
+                color: isActive ? '#4BFFD2' : '#4a6a8f', borderRadius:0, marginRight:2 }}>
+              {rm}
+            </button>
+          );
+        })}
+        <div style={{ width:1, height:16, background:'#1e3a5f', margin:'0 8px' }} />
+        <div style={{ fontSize:10, color:'#2a4a6f' }}>{filteredGroups.reduce((s,g) => s + g.companies.length, 0)} co.</div>
+        {path.length > 0 && (
+          <button onClick={() => { SFX.back(); setPath(path.slice(0, -1)); setSelectedCompany(null); }}
+            style={{ padding:'4px 10px', border:'1px solid #2a4a6f', fontSize:10, cursor:'pointer',
+              fontFamily:'Space Mono,monospace', background:'transparent', color:'#6a8aaf', borderRadius:0, marginLeft:6 }}>
+            ← BACK
+          </button>
+        )}
+        <div style={{ width:1, height:16, background:'#1e3a5f', margin:'0 8px' }} />
+        <button onClick={() => { const m = !muted; setMuted(m); SFX.muted = m; }}
+          style={{ padding:'3px 8px', border:'1px solid #1e3a5f', fontSize:10, cursor:'pointer',
+            fontFamily:'Space Mono,monospace', background: muted ? '#ff6b6b15' : 'transparent',
+            color: muted ? '#ff6b6b' : '#4a6a8f', borderRadius:0 }}>
+          {muted ? '♪ OFF' : '♪ ON'}
+        </button>
+      </div>
 
-        const pageStyle = isActive ? {
-          left: i * TAB_W,
-          right: (N - 1 - i) * TAB_W,
-          zIndex: N,
-          background: '#f5f3ee',
-        } : isLeft ? {
-          left: i * TAB_W,
-          width: TAB_W,
-          zIndex: i,
-          background: g.color,
-        } : {
-          right: (N - 1 - i) * TAB_W,
-          width: TAB_W,
-          zIndex: N + 1 + (N - i),
-          background: g.color,
-        };
+      <div style={{ flex:1, position:'relative', overflow:'hidden', background:'#0a1628' }}>
+        <div style={{ position:'absolute', inset:0, background:'#0a1628' }} />
+        {rects.map((rect) => {
+          const isHov = hovered === rect.name;
+          const color = rect.color;
+          const isCompanyLevel = path.length === 2;
+          const isSel = selectedCompany && rect.company?.id === selectedCompany.id;
+          const domain = isCompanyLevel && rect.company?.business_url
+            ? rect.company.business_url.replace(/^https?:\/\/(www\.)?/,'').replace(/\/.*$/,'')
+            : null;
 
-        return (
-          <div key={g.name}
-            onClick={() => !isActive && setActiveIdx(i)}
-            onMouseEnter={() => !isActive && setHoveredTab(i)}
-            onMouseLeave={() => setHoveredTab(null)}
-            style={{
-              position:'absolute', top:0, bottom:0,
-              ...pageStyle,
-              cursor: isActive ? 'default' : 'pointer',
-              borderLeft: '1px solid rgba(0,0,0,0.12)',
-              boxShadow: '-4px 0 16px rgba(0,0,0,0.12)',
-              display:'flex', flexDirection:'column',
-              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-              overflow:'hidden',
-              filter: isHovTab ? 'brightness(1.15)' : 'none',
-            }}>
-
-            {isActive ? (
-              <>
-                <div style={{ padding:'18px 28px', borderBottom:'1px solid #e0dcd4', flexShrink:0, display:'flex', alignItems:'baseline', gap:10 }}>
-                  <span style={{ fontSize:18, fontWeight:800, color:'#1a1814', letterSpacing:'-0.02em' }}>{g.name}</span>
-                  <span style={{ fontSize:11, color:'#999', fontFamily:'Space Mono,monospace' }}>{g.companies.length} companies</span>
-                </div>
-                <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
-                  {sections.map(([cat, companies]) => (
-                    <div key={cat} style={{ marginBottom:44 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#1a1814' }}>{cat}</div>
-                      <div style={{ height:1, background:'#d4d0c8', margin:'8px 0 20px' }} />
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:24 }}>
-                        {companies.map(company => {
-                          const isHov = hoveredId === company.id;
-                          const seed = company.id * 7 + company.usable_name.charCodeAt(0) * 13;
-                          return (
-                            <div key={company.id}
-                              onMouseEnter={() => setHoveredId(company.id)}
-                              onMouseLeave={() => setHoveredId(null)}
-                              style={{ cursor:'pointer' }}>
-                              <div style={{
-                                aspectRatio:'4/3', borderRadius:6, position:'relative', overflow:'hidden',
-                                background:`linear-gradient(135deg, ${g.color}cc, ${g.accent}bb)`,
-                                transform: isHov ? 'scale(1.03)' : 'scale(1)',
-                                boxShadow: isHov ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 6px rgba(0,0,0,0.06)',
-                                transition:'all 0.2s',
-                              }}>
-                                <CardArt seed={seed} c1={g.color} c2={g.accent} />
-                                <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                                  <span style={{ fontSize:52, fontWeight:900, color:'rgba(255,255,255,0.2)', fontFamily:'Space Mono,monospace' }}>{company.usable_name[0]}</span>
-                                </div>
-                                {isHov && (
-                                  <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.72)', display:'flex', flexDirection:'column', justifyContent:'flex-end', padding:14 }}>
-                                    <div style={{ fontSize:11, color:'#fff', lineHeight:1.6, marginBottom:6 }}>
-                                      {company.merchant_summary.length > 130 ? company.merchant_summary.slice(0,130)+'…' : company.merchant_summary}
-                                    </div>
-                                    <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                                      {[company.revenue_model, company.operational_model, company.customer_type].map((v,j) => (
-                                        <span key={j} style={{ fontSize:9, padding:'2px 6px', borderRadius:3, background:'rgba(255,255,255,0.14)', color:'rgba(255,255,255,0.85)', fontFamily:'Space Mono,monospace' }}>{v}</span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              <div style={{ padding:'8px 2px 0', fontSize:13, fontWeight:600, color:'#1a1814' }}>{company.usable_name}</div>
-                            </div>
-                          );
-                        })}
+          return (
+            <div key={rect.name + (rect.company?.id || '')}
+              onMouseEnter={() => setHovered(rect.name)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => handleClick(rect)}
+              style={{
+                position:'absolute',
+                left: rect.x + GAP/2,
+                top: rect.y + GAP/2,
+                width: rect.w - GAP,
+                height: rect.h - GAP,
+                background: isCompanyLevel ? '#0d1f35' : '#0d1f35',
+                borderRadius: 2,
+                cursor:'pointer',
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                gap: 6,
+                border: isSel ? `2px solid ${color}` : `1px solid ${isHov ? color : '#1e3a5f'}`,
+                transition:'border-color 0.12s, box-shadow 0.12s',
+                boxShadow: isHov ? `inset 0 0 30px ${color}08, 0 0 20px ${color}15` : 'none',
+                overflow:'hidden',
+              }}>
+              {isCompanyLevel ? (
+                <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column' }}>
+                  <div style={{ height: Math.min(22, rect.h * 0.18), background:'#1e3a5f', borderBottom:'1px solid #2a4a6f', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 6px', flexShrink:0 }}>
+                    <span style={{ fontSize:8, color:'#4a6a8f' }}>⊡</span>
+                    {rect.w > 80 && <span style={{ fontSize:8, color:'#6a8aaf', fontFamily:'Space Mono,monospace', letterSpacing:'0.1em' }}>[ {rect.name.slice(0,18)}{rect.name.length > 18 ? '..' : ''} ]</span>}
+                    <span style={{ fontSize:8, color:'#4a6a8f' }}>⊞</span>
+                  </div>
+                  <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6, padding:8 }}>
+                    {domain && rect.h > 60 && (
+                      <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`}
+                        style={{ width: Math.min(28, rect.w * 0.18, (rect.h - 22) * 0.25), height: Math.min(28, rect.w * 0.18, (rect.h - 22) * 0.25), objectFit:'contain', opacity:0.85 }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    )}
+                    {rect.w > 60 && rect.h > 50 && (
+                      <div style={{ fontSize: Math.min(11, Math.max(8, rect.w / 16)), fontWeight:400, color:'#8aa4bf', textAlign:'center', padding:'0 4px', lineHeight:1.3, maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace: rect.h < 90 ? 'nowrap' : 'normal', fontFamily:'Space Mono,monospace' }}>
+                        {rect.name}
                       </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {rect.w > 50 && rect.h > 35 && (
+                    <>
+                      <div style={{ position:'absolute', top:8, left:10, fontSize:9, color:color, opacity:0.6, letterSpacing:'0.05em' }}>
+                        [ {String(rects.indexOf(rect)+1).padStart(2,'0')} ]
+                      </div>
+                      <div style={{ fontSize: Math.min(path.length === 0 ? 26 : 18, Math.max(12, Math.min(rect.w / 7, rect.h / 3))), fontWeight: 400, color:'#f0f4f8', textAlign:'center', padding:'0 12px', lineHeight:1.2, fontFamily:"'sohne-var','Space Grotesk',sans-serif" }}>
+                        {rect.name}
+                      </div>
+                      <div style={{ fontSize:11, color:color, marginTop:2 }}>
+                        {rect.value}
+                      </div>
+                    </>
+                  )}
+                  {isHov && (
+                    <div style={{ position:'absolute', bottom:8, right:10, fontSize:9, color:color, opacity:0.7 }}>
+                      EXPLORE →
                     </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+
+        {selectedCompany && (() => {
+          const c = selectedCompany;
+          const domain = c.business_url ? c.business_url.replace(/^https?:\/\/(www\.)?/,'').replace(/\/.*$/,'') : null;
+          const allCustomers = [
+            { name:'Shopify', domain:'shopify.com' },
+            { name:'HubSpot', domain:'hubspot.com' },
+            { name:'Notion', domain:'notion.so' },
+            { name:'Vercel', domain:'vercel.com' },
+            { name:'Linear', domain:'linear.app' },
+            { name:'Stripe', domain:'stripe.com' },
+          ];
+          const dummyCustomers = allCustomers.filter(cust => cust.name.toLowerCase() !== c.usable_name.toLowerCase()).slice(0, 3 + (c.id % 4));
+
+          return (
+            <div onClick={() => setSelectedCompany(null)} style={{
+              position:'fixed', inset:0, zIndex:1000, background:'rgba(4,10,20,0.85)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              animation:'popIn 0.15s ease-out',
+            }}>
+              <div onClick={(e) => e.stopPropagation()} style={{
+                width:'90%', maxWidth:960, height:'85%', maxHeight:700,
+                background:'#0c1a2e', border:'1px solid #2a4a6f',
+                display:'flex', flexDirection:'column', overflow:'hidden',
+              }}>
+                {/* Title bar */}
+                <div style={{ height:28, background:'#1a2d4a', borderBottom:'1px solid #2a4a6f', display:'flex', alignItems:'center', padding:'0 12px', flexShrink:0 }}>
+                  <span style={{ width:12, height:12, background:'#FF6B35', borderRadius:2, marginRight:8 }} />
+                  <span style={{ fontSize:11, color:'#c8d6e5', flex:1 }}>Company Details - {c.usable_name}</span>
+                  <div style={{ display:'flex', gap:6 }}>
+                    <span style={{ fontSize:10, color:'#4a6a8f', cursor:'pointer' }}>—</span>
+                    <span style={{ fontSize:10, color:'#4a6a8f', cursor:'pointer' }}>□</span>
+                    <span onClick={() => setSelectedCompany(null)} style={{ fontSize:10, color:'#ff6b6b', cursor:'pointer' }}>×</span>
+                  </div>
+                </div>
+
+                {/* Menu bar */}
+                <div style={{ height:24, background:'#0f2240', borderBottom:'1px solid #1e3a5f', display:'flex', alignItems:'center', padding:'0 12px', gap:16, flexShrink:0 }}>
+                  {['File','Edit','View','Help'].map(m => (
+                    <span key={m} style={{ fontSize:11, color:'#8aa4bf', cursor:'default' }}>{m}</span>
                   ))}
                 </div>
-              </>
-            ) : (
-              <div style={{ padding:'16px 10px', display:'flex', flexDirection:'column', height:'100%' }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textShadow:'0 1px 4px rgba(0,0,0,0.3)' }}>
-                  {g.name}
+
+                {/* Toolbar */}
+                <div style={{ height:28, background:'#0f2240', borderBottom:'1px solid #1e3a5f', display:'flex', alignItems:'center', padding:'0 12px', gap:4, flexShrink:0 }}>
+                  {['New','Open','Save','Print'].map(t => (
+                    <span key={t} style={{ fontSize:9, color:'#4BFFD2', padding:'2px 8px', background:'#1a2d4a', border:'1px solid #2a4a6f', cursor:'default' }}>{t}</span>
+                  ))}
                 </div>
-                <div style={{ fontSize:10, color:'rgba(255,255,255,0.45)', fontFamily:'Space Mono,monospace', marginTop:4 }}>
-                  {g.companies.length}
+
+                {/* Content */}
+                <div style={{ flex:1, overflowY:'auto', padding:'28px 36px' }}>
+                  {/* Company header */}
+                  <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:8 }}>
+                    {domain && (
+                      <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`}
+                        style={{ width:40, height:40, objectFit:'contain' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    )}
+                    <span style={{ fontSize:24, fontWeight:300, color:'#f0f4f8', fontFamily:"'sohne-var','Space Grotesk',sans-serif" }}>{c.usable_name}</span>
+                    <img src="public/verified.svg" style={{ width:22, height:22 }} alt="Verified" />
+                  </div>
+                  <div style={{ height:1, background:'#1e3a5f', margin:'16px 0 24px' }} />
+
+                  <div style={{ display:'flex', gap:32 }}>
+                    {/* Details table */}
+                    <div style={{ flex:1 }}>
+                      <div style={{ borderBottom:'1px solid #1e3a5f' }}>
+                        <div style={{ display:'flex', padding:'12px 0', borderBottom:'1px solid #1e3a5f' }}>
+                          <span style={{ width:'40%', fontSize:10, color:'#4a6a8f', fontFamily:"'Space Mono',monospace", letterSpacing:'0.06em' }}>/ CATEGORY</span>
+                          <span style={{ flex:1, fontSize:10, color:'#4a6a8f', fontFamily:"'Space Mono',monospace", letterSpacing:'0.06em' }}>/ DETAILS</span>
+                        </div>
+                        {[
+                          ['Industry', c.category],
+                          ['Website', c.business_url || '—'],
+                          ['Product Type', c.product_type],
+                          ['Revenue Model', c.revenue_model],
+                          ['Operational Model', c.operational_model],
+                          ['Sales Channel', c.sales_channel],
+                          ['Customer Type', c.customer_type],
+                        ].map(([label, val]) => (
+                          <div key={label} style={{ display:'flex', alignItems:'center', padding:'14px 0', borderBottom:'1px solid #1e3a5f' }}>
+                            <span style={{ width:'40%', fontSize:12, color:'#6a8aaf', fontFamily:"'Space Mono',monospace" }}>{label}</span>
+                            <span style={{ flex:1, fontSize:15, color:'#f0f4f8', fontFamily:"'sohne-var','Space Grotesk',sans-serif", fontWeight:400 }}>
+                              {label === 'Website' && val !== '—' ? (
+                                <a href={val.startsWith('http') ? val : 'https://'+val} target="_blank" rel="noopener noreferrer" style={{ color:'#4BFFD2', textDecoration:'none' }}>{val.replace(/^https?:\/\/(www\.)?/,'')} ↗</a>
+                              ) : val}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Description */}
+                      <div style={{ marginTop:20 }}>
+                        <div style={{ fontSize:9, color:'#3a5a7f', letterSpacing:'0.08em', marginBottom:8 }}>/ DESCRIPTION</div>
+                        <div style={{ fontSize:12, color:'#8aa4bf', lineHeight:1.8, fontFamily:"'Space Grotesk',sans-serif" }}>{c.merchant_summary}</div>
+                      </div>
+                    </div>
+
+                    {/* Customers panel */}
+                    <div style={{ width:280, flexShrink:0 }}>
+                      <div style={{ border:'1px solid #1e3a5f', background:'#0f2240', padding:20 }}>
+                        <div style={{ textAlign:'center', fontSize:10, color:'#6a8aaf', letterSpacing:'0.1em', marginBottom:16 }}>[ CUSTOMERS ]</div>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:12, justifyContent:'center' }}>
+                          {dummyCustomers.map((cust, i) => {
+                            const inDirectory = ALL_COMPANIES.find(co => co.usable_name.toLowerCase() === cust.name.toLowerCase());
+                            return (
+                              <div key={i} onClick={inDirectory ? (e) => { e.stopPropagation(); setSelectedCompany(inDirectory); } : undefined}
+                                style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, cursor: inDirectory ? 'pointer' : 'default' }}>
+                                <div style={{ width:48, height:48, borderRadius:'50%', background:'#1a2d4a', border: '1px solid #2a4a6f', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', transition:'border-color 0.2s' }}>
+                                  <img src={`https://www.google.com/s2/favicons?domain=${cust.domain}&sz=64`}
+                                    style={{ width:28, height:28, objectFit:'contain' }}
+                                    onError={(e) => { e.target.style.display='none'; }}
+                                  />
+                                </div>
+                                <span style={{ fontSize:9, color: inDirectory ? '#4BFFD2' : '#6a8aaf' }}>{cust.name}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Signals */}
+                      <div style={{ marginTop:20, border:'1px solid #1e3a5f', background:'#0f2240', padding:16 }}>
+                        <div style={{ fontSize:9, color:'#3a5a7f', letterSpacing:'0.08em', marginBottom:12 }}>/ SIGNALS</div>
+                        {(() => {
+                          const acceptsLink = c.id % 3 !== 2;
+                          return [
+                            ['Stripe Verified', '✓'],
+                            ['Accepts Link', acceptsLink ? '✓' : '—'],
+                            ['Growth Rate', '—'],
+                            ['Churn Rate', '—'],
+                          ].map(([sig, val]) => (
+                            <div key={sig} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #1e3a5f' }}>
+                              <span style={{ fontSize:10, color:'#6a8aaf', display:'flex', alignItems:'center', gap:4 }}>
+                                {sig === 'Accepts Link' && <img src="https://www.google.com/s2/favicons?domain=link.com&sz=32" style={{ width:12, height:12 }} />}
+                                {sig}
+                              </span>
+                              <span style={{ fontSize:10, color: val === '✓' ? '#4BFFD2' : '#3a5a7f' }}>{val}</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status bar */}
+                <div style={{ height:24, background:'#0f2240', borderTop:'1px solid #1e3a5f', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 12px', flexShrink:0 }}>
+                  <span style={{ fontSize:9, color:'#4a6a8f' }}>Ready</span>
+                  <span style={{ fontSize:9, color:'#4a6a8f', border:'1px solid #1e3a5f', padding:'1px 8px' }}>Modified: 05/05/2026</span>
                 </div>
               </div>
-            )}
-          </div>
-        );
-      })}
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }
@@ -694,8 +1072,8 @@ function Viz8_HierarchicalMatrix() {
 // MAIN APP
 // ══════════════════════════════════════════════════════════════════════════════
 const VIEWS = [
-  { id: 'latent', label: '3D Latent Space' },
-  { id: 'tiles',  label: 'Tile Matrix' },
+  { id: 'treemap', label: 'Treemap' },
+  { id: 'latent',  label: '3D Latent Space' },
 ];
 
 function SegmentToggle({ active, onChange }) {
@@ -721,12 +1099,12 @@ function SegmentToggle({ active, onChange }) {
 }
 
 function App() {
-  const [view, setView] = useState('latent');
+  const [view, setView] = useState('treemap');
   return (
     <div style={{ width:'100vw', height:'100vh', position:'relative', overflow:'hidden' }}>
       <SegmentToggle active={view} onChange={setView} />
       <div style={{ width:'100%', height:'100%' }}>
-        {view === 'latent' ? <Viz7_LatentSpace /> : <Viz8_HierarchicalMatrix />}
+        {view === 'latent' ? <Viz7_LatentSpace /> : <Viz_Treemap />}
       </div>
     </div>
   );
