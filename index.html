@@ -807,6 +807,8 @@ function Viz_Treemap() {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [revenueFilter, setRevenueFilter] = useState(null);
   const [muted, setMuted] = useState(false);
+  const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const containerRef = useRef(null);
   const [dims, setDims] = useState({ w: 800, h: 600 });
 
@@ -911,6 +913,36 @@ function Viz_Treemap() {
             </React.Fragment>
           ))}
         </div>
+        <div style={{ position:'relative', marginLeft:16 }}>
+          <input
+            type="text" placeholder="Search companies..."
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)} onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+            style={{ width:300, padding:'4px 10px', border:'1px solid #1e3a5f', background:'#0d1f35', color:'#c8d6e5', fontSize:9, fontFamily:'Space Mono,monospace', borderRadius:0, outline:'none' }}
+          />
+          {searchFocused && search.length > 1 && (() => {
+            const results = ALL_COMPANIES.filter(c => c.usable_name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
+            if (!results.length) return null;
+            const companyGroupMap = buildCompanyGroupMap();
+            return (
+              <div style={{ position:'absolute', top:'100%', left:0, width:260, background:'#0c1a2e', border:'1px solid #1e3a5f', zIndex:100, maxHeight:240, overflowY:'auto' }}>
+                {results.map(c => (
+                  <div key={c.id} onMouseDown={() => {
+                    const groupName = companyGroupMap[c.usable_name];
+                    if (groupName) { setPath([groupName, c.category]); setSelectedCompany(c); }
+                    setSearch(''); SFX.select();
+                  }} style={{ padding:'6px 10px', cursor:'pointer', borderBottom:'1px solid #1e3a5f', display:'flex', alignItems:'center', gap:8 }}
+                    onMouseEnter={(e) => e.currentTarget.style.background='#1a2d4a'}
+                    onMouseLeave={(e) => e.currentTarget.style.background='transparent'}>
+                    <img src={`https://www.google.com/s2/favicons?domain=${c.business_url ? c.business_url.replace(/^https?:\/\/(www\.)?/,'').replace(/\/.*$/,'') : ''}&sz=32`} style={{ width:14, height:14 }} onError={(e) => e.target.style.display='none'} />
+                    <span style={{ fontSize:10, color:'#c8d6e5' }}>{c.usable_name}</span>
+                    <span style={{ fontSize:8, color:'#4a6a8f', marginLeft:'auto' }}>{c.category}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
         <div style={{ flex:1 }} />
         <span style={{ fontSize:9, color:'#3a5a7f', marginRight:4 }}>/ REVENUE</span>
         {['All', ...REVENUE_MODELS].map(rm => {
@@ -1013,10 +1045,10 @@ function Viz_Treemap() {
                       <div style={{ position:'absolute', top:8, left:10, fontSize:9, color:color, opacity:0.6, letterSpacing:'0.05em' }}>
                         [ {String(rects.indexOf(rect)+1).padStart(2,'0')} ]
                       </div>
-                      <div style={{ fontSize: Math.min(path.length === 0 ? 26 : 18, Math.max(12, Math.min(rect.w / 7, rect.h / 3))), fontWeight: 400, color:'#f0f4f8', textAlign:'center', padding:'0 12px', lineHeight:1.2, fontFamily:"'sohne-var','Space Grotesk',sans-serif" }}>
+                      <div style={{ fontSize: path.length === 0 ? Math.min(26, Math.max(12, Math.min(rect.w / 7, rect.h / 3))) : 12, fontWeight: 400, color:'#f0f4f8', textAlign:'center', padding:'0 12px', lineHeight:1.2, fontFamily:"'sohne-var','Space Grotesk',sans-serif" }}>
                         {rect.name}
                       </div>
-                      <div style={{ fontSize:11, color:color, marginTop:2 }}>
+                      <div style={{ fontSize:12, color:color, marginTop:2 }}>
                         {rect.value}
                       </div>
                     </>
