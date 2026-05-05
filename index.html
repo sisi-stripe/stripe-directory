@@ -364,17 +364,17 @@ function Viz7_LatentSpace() {
   }
 
   return (
-    <div ref={containerRef} style={{ width:'100%', height:'100%', background:'#060610', display:'flex', flexDirection:'column', fontFamily:"'Space Mono',monospace", color:'#f0ede8', userSelect:'none' }}>
-      <div style={{ padding:'14px 22px 10px', display:'flex', gap:10, alignItems:'center', flexShrink:0, borderBottom:'1px solid #ffffff08' }}>
-        <div style={{ fontFamily:"'sohne-var','Space Grotesk',sans-serif", fontSize:18, fontWeight:700 }}>3D Latent Space</div>
-        <div style={{ fontSize:10, color:'#3a3a5a', marginLeft:4 }}>drag to rotate · scroll to zoom · click a dot</div>
+    <div ref={containerRef} style={{ width:'100%', height:'100%', background:'#0a1628', display:'flex', flexDirection:'column', fontFamily:"'Space Mono',monospace", color:'#c8d6e5', userSelect:'none' }}>
+      <div style={{ padding:'12px 22px', display:'flex', gap:8, alignItems:'center', flexShrink:0, borderBottom:'1px solid #1e3a5f' }}>
+        <div style={{ fontSize:11, color:'#4BFFD2', letterSpacing:'0.05em' }}>/ LATENT SPACE</div>
+        <div style={{ fontSize:10, color:'#4a6a8f', marginLeft:8 }}>drag to rotate · scroll to zoom · click a dot</div>
         <div style={{ flex:1 }} />
-        <span style={{ fontSize:11, color:'#3a3a4a' }}>color by</span>
+        <span style={{ fontSize:9, color:'#3a5a7f', marginRight:4 }}>/ COLOR BY</span>
         {['group','revenue_model','customer_type','sales_channel'].map(k => (
-          <button key={k} onClick={() => { setColorBy(k); setActiveGroup(null); }} style={{ padding:'3px 9px', borderRadius:4, border:'1px solid', fontSize:10, cursor:'pointer', fontFamily:'Space Mono,monospace',
-            background: colorBy===k ? '#ffffff14':'transparent',
-            color: colorBy===k ? '#f0ede8':'#3a3a5a',
-            borderColor: colorBy===k ? '#ffffff22':'#1a1a2e' }}>{k === 'group' ? 'industry' : k.replace(/_/g,' ')}</button>
+          <button key={k} onClick={() => { setColorBy(k); setActiveGroup(null); }} style={{ padding:'3px 8px', border: colorBy===k ? '1px solid #4BFFD2' : '1px solid #1e3a5f', fontSize:9, cursor:'pointer', fontFamily:'Space Mono,monospace',
+            background: colorBy===k ? '#4BFFD215':'transparent',
+            color: colorBy===k ? '#4BFFD2':'#4a6a8f',
+            borderRadius:0, marginRight:2 }}>{k === 'group' ? 'industry' : k.replace(/_/g,' ')}</button>
         ))}
       </div>
 
