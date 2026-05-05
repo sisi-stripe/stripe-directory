@@ -247,7 +247,7 @@ function Viz7_LatentSpace() {
   const rotRef = useRef({ rx: 0.38, ry: -0.5 });
   const dragRef = useRef(null);
   const dragMovedRef = useRef(false);
-  const zoomRef = useRef(3.5);
+  const zoomRef = useRef(8);
   const [, forceRender] = useState(0);
   const redraw = () => forceRender(n => n+1);
 
@@ -276,7 +276,7 @@ function Viz7_LatentSpace() {
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMovedRef.current = true;
-    rotRef.current = { rx: dragRef.current.rx + dy * 0.008, ry: dragRef.current.ry + dx * 0.008 };
+    rotRef.current = { rx: dragRef.current.rx + dy * 0.005, ry: dragRef.current.ry + dx * 0.005 };
     redraw();
   };
   const onMouseUp = (e) => {
@@ -291,10 +291,20 @@ function Viz7_LatentSpace() {
     });
     setSelectedId(closest ? closest.id : null);
   };
+  const targetZoomRef = useRef(zoomRef.current);
+  const zoomAnimRef = useRef(null);
+  const animateZoom = () => {
+    const ratio = targetZoomRef.current / zoomRef.current;
+    if (Math.abs(ratio - 1) < 0.002) { zoomRef.current = targetZoomRef.current; zoomAnimRef.current = null; redraw(); return; }
+    zoomRef.current *= 1 + (ratio - 1) * 0.2;
+    redraw();
+    zoomAnimRef.current = requestAnimationFrame(animateZoom);
+  };
   const onWheel = (e) => {
     e.preventDefault();
-    zoomRef.current = Math.max(0.3, Math.min(500, zoomRef.current * (e.deltaY > 0 ? 0.9 : 1.12)));
-    redraw();
+    const factor = e.deltaY > 0 ? 0.88 : 1.14;
+    targetZoomRef.current = Math.max(0.3, Math.min(500, targetZoomRef.current * factor));
+    if (!zoomAnimRef.current) zoomAnimRef.current = requestAnimationFrame(animateZoom);
   };
 
   const { rx, ry } = rotRef.current;
@@ -428,22 +438,33 @@ function Viz7_LatentSpace() {
             const isSel = selectedId === pt.id;
             const dimmed = activeGroup && getGroupName(c) !== activeGroup;
             const depthFade = Math.max(0.3, Math.min(1, (pt.depth + 1) / 3));
-            const r = isSel ? 10 : isHov ? 8 : Math.max(3, 5 * depthFade);
+            const r = isSel ? 8 : isHov ? 6 : Math.max(2, 3.5 * depthFade);
+            const showLogo = zoomRef.current > 15;
+            const logoSize = Math.min(24, Math.max(14, zoomRef.current * 0.8));
+            const domain = c.business_url ? c.business_url.replace(/^https?:\/\/(www\.)?/,'').replace(/\/.*$/,'') : null;
             return (
               <g key={pt.id}>
-                {(isHov || isSel) && <circle cx={pt.px} cy={pt.py} r={isSel ? 22 : 18} fill={color} opacity={isSel ? 0.18 : 0.12} />}
-                {isSel && <circle cx={pt.px} cy={pt.py} r={16} fill="none" stroke={color} strokeWidth={1.5} strokeOpacity={0.5} strokeDasharray="4 3">
+                {(isHov || isSel) && <circle cx={pt.px} cy={pt.py} r={isSel ? 18 : 14} fill={color} opacity={isSel ? 0.18 : 0.12} />}
+                {isSel && <circle cx={pt.px} cy={pt.py} r={14} fill="none" stroke={color} strokeWidth={1.5} strokeOpacity={0.5} strokeDasharray="4 3">
                   <animateTransform attributeName="transform" type="rotate" from={`0 ${pt.px} ${pt.py}`} to={`360 ${pt.px} ${pt.py}`} dur="8s" repeatCount="indefinite" />
                 </circle>}
-                <circle cx={pt.px} cy={pt.py} r={r}
-                  fill={color}
-                  opacity={dimmed ? 0.06 : (isHov || isSel) ? 1 : 0.7 * depthFade}
-                  stroke={isSel ? 'white' : isHov ? 'white' : color}
-                  strokeWidth={isSel ? 2 : isHov ? 1.5 : 0.5}
-                  strokeOpacity={(isHov || isSel) ? 1 : 0.3}
-                />
+                {showLogo && domain && !dimmed ? (
+                  <foreignObject x={pt.px - logoSize/2} y={pt.py - logoSize/2} width={logoSize} height={logoSize} style={{ pointerEvents:'none', overflow:'visible' }}>
+                    <div xmlns="http://www.w3.org/1999/xhtml" style={{ width:logoSize, height:logoSize, borderRadius:'50%', background:'#1a2d4a', border:`1.5px solid ${color}`, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', opacity: (isHov || isSel) ? 1 : 0.85 }}>
+                      <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} style={{ width:logoSize*0.6, height:logoSize*0.6, objectFit:'contain' }} />
+                    </div>
+                  </foreignObject>
+                ) : (
+                  <circle cx={pt.px} cy={pt.py} r={r}
+                    fill={color}
+                    opacity={dimmed ? 0.06 : (isHov || isSel) ? 1 : 0.7 * depthFade}
+                    stroke={isSel ? 'white' : isHov ? 'white' : color}
+                    strokeWidth={isSel ? 2 : isHov ? 1.5 : 0.5}
+                    strokeOpacity={(isHov || isSel) ? 1 : 0.3}
+                  />
+                )}
                 {(isHov && !isSel) && (
-                  <text x={pt.px} y={pt.py-14} textAnchor="middle"
+                  <text x={pt.px} y={pt.py - (showLogo ? logoSize/2 + 4 : 10)} textAnchor="middle"
                     fill="white" fontSize={11} fontWeight={700}
                     fontFamily="Space Grotesk,sans-serif"
                     style={{ pointerEvents:'none' }}>{c.usable_name}</text>
@@ -1099,19 +1120,6 @@ function Viz_Treemap() {
                   </div>
                 </div>
 
-                {/* Menu bar */}
-                <div style={{ height:24, background:'#0f2240', borderBottom:'1px solid #1e3a5f', display:'flex', alignItems:'center', padding:'0 12px', gap:16, flexShrink:0 }}>
-                  {['File','Edit','View','Help'].map(m => (
-                    <span key={m} style={{ fontSize:11, color:'#8aa4bf', cursor:'default' }}>{m}</span>
-                  ))}
-                </div>
-
-                {/* Toolbar */}
-                <div style={{ height:28, background:'#0f2240', borderBottom:'1px solid #1e3a5f', display:'flex', alignItems:'center', padding:'0 12px', gap:4, flexShrink:0 }}>
-                  {['New','Open','Save','Print'].map(t => (
-                    <span key={t} style={{ fontSize:9, color:'#4BFFD2', padding:'2px 8px', background:'#1a2d4a', border:'1px solid #2a4a6f', cursor:'default' }}>{t}</span>
-                  ))}
-                </div>
 
                 {/* Content */}
                 <div style={{ flex:1, overflowY:'auto', padding:'28px 36px' }}>
@@ -1191,18 +1199,20 @@ function Viz_Treemap() {
                         <div style={{ fontSize:9, color:'#3a5a7f', letterSpacing:'0.08em', marginBottom:12 }}>/ SIGNALS</div>
                         {(() => {
                           const acceptsLink = c.id % 3 !== 2;
+                          const growthRate = ((c.id * 7 + 13) % 40 + 5) + '%';
+                          const churnRate = ((c.id * 3 + 7) % 12 + 1) + '.' + ((c.id * 11) % 10) + '%';
                           return [
                             ['Stripe Verified', '✓'],
                             ['Accepts Link', acceptsLink ? '✓' : '—'],
-                            ['Growth Rate', '—'],
-                            ['Churn Rate', '—'],
+                            ['Growth Rate', '+' + growthRate + ' MoM'],
+                            ['Churn Rate', churnRate],
                           ].map(([sig, val]) => (
                             <div key={sig} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #1e3a5f' }}>
                               <span style={{ fontSize:10, color:'#6a8aaf', display:'flex', alignItems:'center', gap:4 }}>
                                 {sig === 'Accepts Link' && <img src="https://www.google.com/s2/favicons?domain=link.com&sz=32" style={{ width:12, height:12 }} />}
                                 {sig}
                               </span>
-                              <span style={{ fontSize:10, color: val === '✓' ? '#4BFFD2' : '#3a5a7f' }}>{val}</span>
+                              <span style={{ fontSize:10, color: val === '✓' ? '#4BFFD2' : sig === 'Growth Rate' ? '#4BFFD2' : sig === 'Churn Rate' ? '#ff6b6b' : '#3a5a7f' }}>{val}</span>
                             </div>
                           ));
                         })()}
