@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Company Directory – Visualizations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+  body { font-family: 'Space Grotesk', sans-serif; background: #0e0e0f; color: #f0ede8; }
+  @keyframes popIn { from { opacity:0; transform:scale(0.92) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+</style>
+</head>
+<body>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ─── Shared Data (loaded from CSV) ──────────────────────────────────────────
+let CATEGORIES = [];
+let CAT_COLORS = {};
+let REVENUE_MODELS = [];
+let OP_MODELS = [];
+let SALES_CHANNELS = [];
+let CUSTOMER_TYPES = [];
+let PRODUCT_TYPES = [];
+let SUBCATEGORIES = {};
+let ALL_COMPANIES = [];
+
+function rng(seed) {
+  let s = seed;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let p = 0;
+  const len = text.length;
+  function field() {
+    if (p < len && text[p] === '"') {
+      p++;
+      let v = '';
+      while (p < len) {
+        if (text[p] === '"') {
+          if (p + 1 < len && text[p + 1] === '"') { v += '"'; p += 2; }
+          else { p++; break; }
+        } else v += text[p++];
+      }
+      return v;
+    }
+    let v = '';
+    while (p < len && text[p] !== ',' && text[p] !== '\r' && text[p] !== '\n') v += text[p++];
+    return v;
+  }
+  while (p < len) {
+    const row = [field()];
+    while (p < len && text[p] === ',') { p++; row.push(field()); }
+    if (p < len && text[p] === '\r') p++;
+    if (p < len && text[p] === '\n') p++;
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseJSONArray(str) {
+  if (!str || str === 'null' || str === '[]') return [];
+  try { const a = JSON.parse(str); return Array.isArray(a) ? a : [String(a)]; }
+  catch { return str ? [str] : []; }
+}
+
+function csvVal(row, idx) {
+  const v = (row[idx] || '').trim();
+  return v === 'null' ? '' : v;
+}
+
+async function loadData() {
+  const resp = await fetch('public/sampleDirectory.csv');
+  const text = await resp.text();
+  const rows = parseCSV(text);
+  const hdr = rows[0];
+  const col = {};
+  hdr.forEach((h, i) => { col[h.trim()] = i; });
+
+  const r = rng(42);
+  const companies = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length < hdr.length) continue;
+    const cat = csvVal(row, col.category);
+    if (!cat) continue;
+    const pt = parseJSONArray(csvVal(row, col.product_type));
+    const rm = parseJSONArray(csvVal(row, col.revenue_model));
+    const om = parseJSONArray(csvVal(row, col.operational_model));
+    const sc = parseJSONArray(csvVal(row, col.sales_channel));
+    const ct = parseJSONArray(csvVal(row, col.customer_type));
+    const summary = csvVal(row, col.merchant_summary);
+    companies.push({
+      id: companies.length,
+      usable_name: csvVal(row, col.usable_name) || 'Unknown',
+      merchant_id: csvVal(row, col.merchant_id),
+      category: cat,
+      subcategory: pt[0] || 'Other',
+      business_url: csvVal(row, col.business_url),
+      merchant_summary: summary || 'No description available.',
+      product_type: pt[0] || 'Other',
+      revenue_model: rm[0] || 'Other',
+      operational_model: om[0] || 'Other',
+      sales_channel: sc[0] || 'Other',
+      customer_type: ct[0] || 'Other',
+      lx: r(),
+      ly: r(),
+    });
+  }
+
+  ALL_COMPANIES = companies;
+  const unique = (arr) => [...new Set(arr)].sort();
+  CATEGORIES = unique(companies.map(c => c.category));
+  REVENUE_MODELS = unique(companies.map(c => c.revenue_model));
+  OP_MODELS = unique(companies.map(c => c.operational_model));
+  SALES_CHANNELS = unique(companies.map(c => c.sales_channel));
+  CUSTOMER_TYPES = unique(companies.map(c => c.customer_type));
+  PRODUCT_TYPES = unique(companies.map(c => c.product_type));
+  CATEGORIES.forEach((cat, i) => {
+    CAT_COLORS[cat] = `oklch(65% 0.18 ${Math.round((i * 137.508) % 360)})`;
+  });
+  SUBCATEGORIES = {};
+  CATEGORIES.forEach(cat => {
+    SUBCATEGORIES[cat] = unique(companies.filter(c => c.category === cat).map(c => c.subcategory));
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SHARED — Category Groups (used by both Viz7 and Viz8)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const GROUP_DEFS = [
+  { name:'Tech & AI',      color:'#635BFF', accent:'#FF6B35', keywords:['ai','software','saas','cloud','cyber','it service','tech','automation','blockchain','analytics','data','developer','platform'] },
+  { name:'Business',       color:'#6ECFDB', accent:'#0A2540', keywords:['consult','account','legal','market','hr','professional','business','management','staffing','recruit','operations','architectural'] },
+  { name:'Commerce',       color:'#FF6B35', accent:'#6B3FA0', keywords:['commerce','retail','fashion','marketplace','supply','logistics','shipping','wholesale','manufacturing','automotive','aviation'] },
+  { name:'Creative',       color:'#A855F7', accent:'#FF4081', keywords:['entertain','gaming','media','design','photo','content','art','music','event','sports','creative','social'] },
+  { name:'Health',         color:'#00D4AA', accent:'#1A3A4A', keywords:['health','fitness','medical','wellness','pharma','mental','biotech','life science','cannabis','pet','beauty','cleaning'] },
+  { name:'Finance',        color:'#E8B931', accent:'#1A2540', keywords:['financ','fintech','insur','real estate','invest','banking','payment','lending','crypto','property'] },
+  { name:'Food & Travel',  color:'#FF4081', accent:'#FFB347', keywords:['food','beverage','restaurant','hospit','travel','agri','tourism','hotel'] },
+  { name:'Education & NPO',color:'#3B82F6', accent:'#FFD700', keywords:['educ','learning','training','academ','school','university','tutor','nonprofit','charity','religious','environment','energy','transportation','government','construction'] },
+];
+
+function buildGroups() {
+  const groups = [];
+  const used = new Set();
+  GROUP_DEFS.forEach(def => {
+    const cats = CATEGORIES.filter(cat => {
+      if (used.has(cat)) return false;
+      const l = cat.toLowerCase();
+      return def.keywords.some(kw => l.includes(kw));
+    });
+    cats.forEach(c => used.add(c));
+    if (cats.length) {
+      groups.push({ ...def, categories: cats, companies: ALL_COMPANIES.filter(c => cats.includes(c.category)) });
+    }
+  });
+  const rest = CATEGORIES.filter(c => !used.has(c));
+  if (rest.length) {
+    groups.push({ name:'Other', color:'#6B7280', accent:'#9CA3AF', categories:rest, companies:ALL_COMPANIES.filter(c => rest.includes(c.category)) });
+  }
+  return groups;
+}
+
+let COMPANY_GROUP_MAP = {};
+function buildCompanyGroupMap() {
+  const groups = buildGroups();
+  COMPANY_GROUP_MAP = {};
+  groups.forEach(g => {
+    g.companies.forEach(c => { COMPANY_GROUP_MAP[c.id] = g; });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VIZ 7 — 3D Latent Space Scatter (drag-to-rotate, scroll-to-zoom)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── 3D math helpers ──────────────────────────────────────────────────────────
+function mat3Mul(a, b) {
+  const r = [0,0,0,0,0,0,0,0,0];
+  for (let i=0;i<3;i++) for (let j=0;j<3;j++) for (let k=0;k<3;k++) r[i*3+j]+=a[i*3+k]*b[k*3+j];
+  return r;
+}
+function rotX(t) { const c=Math.cos(t),s=Math.sin(t); return [1,0,0,0,c,-s,0,s,c]; }
+function rotY(t) { const c=Math.cos(t),s=Math.sin(t); return [c,0,s,0,1,0,-s,0,c]; }
+function applyMat(m, [x,y,z]) { return [m[0]*x+m[1]*y+m[2]*z, m[3]*x+m[4]*y+m[5]*z, m[6]*x+m[7]*y+m[8]*z]; }
+
+function gen3DPositions() {
+  const r = rng(77);
+  const spread = (val, arr) => {
+    const idx = arr.indexOf(val);
+    const n = arr.length;
+    return n > 1 ? (idx / (n - 1)) - 0.5 : 0;
+  };
+  const jit = 0.025;
+  return ALL_COMPANIES.map(c => ({
+    id: c.id,
+    x: spread(c.revenue_model, REVENUE_MODELS) * 0.4 + (r()-0.5)*jit,
+    y: spread(c.customer_type, CUSTOMER_TYPES) * 0.4 + (r()-0.5)*jit,
+    z: spread(c.sales_channel, SALES_CHANNELS) * 0.4 + (r()-0.5)*jit,
+  }));
+}
+let POINTS_3D = [];
+
+function project3D(pt, rotMat, cx, cy, scale, fov=2.5) {
+  const [rx, ry, rz] = applyMat(rotMat, [pt.x, pt.y, pt.z]);
+  const depth = rz + fov;
+  const px = cx + (rx / depth) * scale;
+  const py = cy + (ry / depth) * scale;
+  return { px, py, depth };
+}
+
+function Viz7_LatentSpace() {
+  const [colorBy, setColorBy] = useState('group');
+  const [activeGroup, setActiveGroup] = useState(null);
+  const [mousePos, setMousePos] = useState({ x:0, y:0 });
+  const [selectedId, setSelectedId] = useState(null);
+  const containerRef = useRef(null);
+  const svgRef = useRef(null);
+  const [dims, setDims] = useState({ w:860, h:560 });
+  const groups = useMemo(() => buildGroups(), []);
+
+  const rotRef = useRef({ rx: 0.38, ry: -0.5 });
+  const dragRef = useRef(null);
+  const dragMovedRef = useRef(false);
+  const zoomRef = useRef(3.5);
+  const [, forceRender] = useState(0);
+  const redraw = () => forceRender(n => n+1);
+
+  useEffect(() => {
+    const obs = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      setDims({ w: width, h: height - 52 });
+    });
+    if (containerRef.current) obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setSelectedId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const onMouseDown = (e) => {
+    dragRef.current = { startX: e.clientX, startY: e.clientY, rx: rotRef.current.rx, ry: rotRef.current.ry };
+    dragMovedRef.current = false;
+  };
+  const onMouseMove = (e) => {
+    setMousePos({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMovedRef.current = true;
+    rotRef.current = { rx: dragRef.current.rx + dy * 0.008, ry: dragRef.current.ry + dx * 0.008 };
+    redraw();
+  };
+  const onMouseUp = (e) => {
+    const wasDrag = dragMovedRef.current;
+    dragRef.current = null;
+    if (wasDrag) return;
+    const mx = e.nativeEvent.offsetX, my = e.nativeEvent.offsetY;
+    let closest = null, bestD = 18;
+    projectedPoints.forEach(pt => {
+      const d = Math.hypot(pt.px - mx, pt.py - my);
+      if (d < bestD) { bestD = d; closest = pt; }
+    });
+    setSelectedId(closest ? closest.id : null);
+  };
+  const onWheel = (e) => {
+    e.preventDefault();
+    zoomRef.current = Math.max(0.3, Math.min(500, zoomRef.current * (e.deltaY > 0 ? 0.9 : 1.12)));
+    redraw();
+  };
+
+  const { rx, ry } = rotRef.current;
+  const rotMat = mat3Mul(rotX(rx), rotY(ry));
+  const cx = dims.w / 2, cy = dims.h / 2;
+  const scale = Math.min(dims.w, dims.h) * 0.38 * zoomRef.current;
+
+  const getColor = (c) => {
+    if (colorBy === 'group') { const g = COMPANY_GROUP_MAP[c.id]; return g ? g.color : '#6B7280'; }
+    if (colorBy === 'revenue_model') { const h=(REVENUE_MODELS.indexOf(c.revenue_model)/REVENUE_MODELS.length)*360; return `oklch(65% 0.17 ${h})`; }
+    if (colorBy === 'customer_type') { const h=(CUSTOMER_TYPES.indexOf(c.customer_type)/CUSTOMER_TYPES.length)*360; return `oklch(65% 0.17 ${h})`; }
+    if (colorBy === 'sales_channel') { const h=(SALES_CHANNELS.indexOf(c.sales_channel)/SALES_CHANNELS.length)*360; return `oklch(65% 0.17 ${h})`; }
+    return '#888';
+  };
+  const getGroupName = (c) => { const g = COMPANY_GROUP_MAP[c.id]; return g ? g.name : 'Other'; };
+
+  const projectedPoints = POINTS_3D.map((pt, i) => {
+    const { px, py, depth } = project3D(pt, rotMat, cx, cy, scale);
+    return { ...pt, px, py, depth, company: ALL_COMPANIES[i] };
+  }).sort((a, b) => b.depth - a.depth);
+
+  let hoveredPoint = null;
+  let minDist = 18;
+  projectedPoints.forEach(pt => {
+    const d = Math.hypot(pt.px - mousePos.x, pt.py - mousePos.y);
+    if (d < minDist) { minDist = d; hoveredPoint = pt; }
+  });
+
+  const selectedPoint = selectedId != null ? projectedPoints.find(p => p.id === selectedId) : null;
+
+  const axisLen = 0.55;
+  const axes = [
+    { dir:[axisLen,0,0], neg:[-axisLen,0,0], label:'Revenue Model', color:'#ff6b6b', values: REVENUE_MODELS },
+    { dir:[0,axisLen,0], neg:[0,-axisLen,0], label:'Customer Type', color:'#6bffb8', values: CUSTOMER_TYPES },
+    { dir:[0,0,axisLen], neg:[0,0,-axisLen], label:'Sales Channel', color:'#6bb8ff', values: SALES_CHANNELS },
+  ];
+
+  const gridLines = [];
+  const gridN = 5;
+  for (let i=0; i<=gridN; i++) {
+    const t = -axisLen + i*(2*axisLen/gridN);
+    gridLines.push({ a:[-axisLen,- axisLen,t], b:[axisLen,-axisLen,t] });
+    gridLines.push({ a:[t,-axisLen,-axisLen], b:[t,-axisLen,axisLen] });
+  }
+
+  const proj = ([x,y,z]) => {
+    const [rx2,ry2,rz2] = applyMat(rotMat,[x,y,z]);
+    const d = rz2 + 2.5;
+    return { x: cx+(rx2/d)*scale, y: cy+(ry2/d)*scale };
+  };
+
+  const legendVals = {
+    group: groups.map(g => g.name),
+    revenue_model: REVENUE_MODELS,
+    customer_type: CUSTOMER_TYPES,
+    sales_channel: SALES_CHANNELS,
+  };
+
+  const popoverW = 340, popoverH = 380;
+  let popX = 0, popY = 0, popAnchor = 'left';
+  if (selectedPoint) {
+    popX = selectedPoint.px + 20;
+    popY = selectedPoint.py - popoverH / 2;
+    if (popX + popoverW > dims.w - 10) { popX = selectedPoint.px - popoverW - 20; popAnchor = 'right'; }
+    if (popY < 10) popY = 10;
+    if (popY + popoverH > dims.h - 10) popY = dims.h - popoverH - 10;
+  }
+
+  return (
+    <div ref={containerRef} style={{ width:'100%', height:'100%', background:'#060610', display:'flex', flexDirection:'column', fontFamily:"'Space Grotesk',sans-serif", color:'#f0ede8', userSelect:'none' }}>
+      <div style={{ padding:'14px 22px 10px', display:'flex', gap:10, alignItems:'center', flexShrink:0, borderBottom:'1px solid #ffffff08' }}>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:900 }}>3D Latent Space</div>
+        <div style={{ fontSize:11, color:'#333', fontFamily:'Space Mono,monospace', marginLeft:4 }}>drag to rotate · scroll to zoom · click a dot</div>
+        <div style={{ flex:1 }} />
+        <span style={{ fontSize:11, color:'#3a3a4a' }}>color by</span>
+        {['group','revenue_model','customer_type','sales_channel'].map(k => (
+          <button key={k} onClick={() => { setColorBy(k); setActiveGroup(null); }} style={{ padding:'3px 9px', borderRadius:4, border:'1px solid', fontSize:10, cursor:'pointer', fontFamily:'Space Mono,monospace',
+            background: colorBy===k ? '#ffffff14':'transparent',
+            color: colorBy===k ? '#f0ede8':'#3a3a5a',
+            borderColor: colorBy===k ? '#ffffff22':'#1a1a2e' }}>{k === 'group' ? 'industry' : k.replace(/_/g,' ')}</button>
+        ))}
+      </div>
+
+      <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
+        <svg
+          ref={svgRef}
+          width={dims.w} height={dims.h}
+          style={{ display:'block', cursor: dragRef.current ? 'grabbing' : hoveredPoint ? 'pointer' : 'grab' }}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={() => { dragRef.current = null; }}
+          onWheel={onWheel}
+        >
+          <defs>
+            <radialGradient id="space-bg" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stopColor="#0e0e28" />
+              <stop offset="100%" stopColor="#060610" />
+            </radialGradient>
+          </defs>
+          <rect width={dims.w} height={dims.h} fill="url(#space-bg)" />
+
+          {gridLines.map((gl, i) => {
+            const a = proj(gl.a), b = proj(gl.b);
+            return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#ffffff08" strokeWidth={0.8} />;
+          })}
+
+          {axes.map((ax, i) => {
+            const tip = proj(ax.dir);
+            const neg = proj(ax.neg);
+            return (
+              <g key={i}>
+                <line x1={neg.x} y1={neg.y} x2={tip.x} y2={tip.y} stroke={ax.color} strokeWidth={1} strokeOpacity={0.25} strokeDasharray={i===2?"4 3":undefined}/>
+                <text x={tip.x+6} y={tip.y+4} fill={ax.color} fontSize={10} fontFamily="Space Mono,monospace" opacity={0.7} fontWeight={600}>{ax.label}</text>
+                {ax.values.map((val, vi) => {
+                  const t = ax.values.length > 1 ? (vi / (ax.values.length - 1)) - 0.5 : 0;
+                  const pos = [0,0,0];
+                  pos[i] = t * 0.9;
+                  const p = proj(pos);
+                  return <text key={vi} x={p.x} y={p.y + 14} textAnchor="middle" fill={ax.color} fontSize={8} fontFamily="Space Mono,monospace" opacity={0.35}>{val}</text>;
+                })}
+              </g>
+            );
+          })}
+
+
+          {projectedPoints.map(pt => {
+            const c = pt.company;
+            const color = getColor(c);
+            const isHov = hoveredPoint?.id === pt.id;
+            const isSel = selectedId === pt.id;
+            const dimmed = activeGroup && getGroupName(c) !== activeGroup;
+            const depthFade = Math.max(0.3, Math.min(1, (pt.depth + 1) / 3));
+            const r = isSel ? 10 : isHov ? 8 : Math.max(3, 5 * depthFade);
+            return (
+              <g key={pt.id}>
+                {(isHov || isSel) && <circle cx={pt.px} cy={pt.py} r={isSel ? 22 : 18} fill={color} opacity={isSel ? 0.18 : 0.12} />}
+                {isSel && <circle cx={pt.px} cy={pt.py} r={16} fill="none" stroke={color} strokeWidth={1.5} strokeOpacity={0.5} strokeDasharray="4 3">
+                  <animateTransform attributeName="transform" type="rotate" from={`0 ${pt.px} ${pt.py}`} to={`360 ${pt.px} ${pt.py}`} dur="8s" repeatCount="indefinite" />
+                </circle>}
+                <circle cx={pt.px} cy={pt.py} r={r}
+                  fill={color}
+                  opacity={dimmed ? 0.06 : (isHov || isSel) ? 1 : 0.7 * depthFade}
+                  stroke={isSel ? 'white' : isHov ? 'white' : color}
+                  strokeWidth={isSel ? 2 : isHov ? 1.5 : 0.5}
+                  strokeOpacity={(isHov || isSel) ? 1 : 0.3}
+                />
+                {(isHov && !isSel) && (
+                  <text x={pt.px} y={pt.py-14} textAnchor="middle"
+                    fill="white" fontSize={11} fontWeight={700}
+                    fontFamily="Space Grotesk,sans-serif"
+                    style={{ pointerEvents:'none' }}>{c.usable_name}</text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        {selectedPoint && (() => {
+          const c = selectedPoint.company;
+          const color = getColor(c);
+          const connX = popAnchor === 'left' ? popX : popX + popoverW;
+          return (
+            <div style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+              <svg style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+                <line x1={selectedPoint.px} y1={selectedPoint.py} x2={connX} y2={popY + popoverH/2}
+                  stroke={color} strokeWidth={1} strokeOpacity={0.3} strokeDasharray="4 3" />
+              </svg>
+              <div onClick={(e) => e.stopPropagation()} style={{
+                position:'absolute', left:popX, top:popY, width:popoverW,
+                background:'rgba(12,12,28,0.96)', border:`1px solid ${color}44`,
+                borderRadius:14, pointerEvents:'auto',
+                boxShadow:`0 20px 60px rgba(0,0,0,0.6), 0 0 40px ${color}15`,
+                backdropFilter:'blur(20px)', overflow:'hidden',
+                animation:'popIn 0.2s ease-out',
+              }}>
+                <div style={{ height:6, background:`linear-gradient(90deg, ${color}, ${color}44)` }} />
+                <div style={{ padding:'18px 20px 16px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:4 }}>
+                    <div style={{ fontSize:18, fontWeight:800, color:'#f0ede8', letterSpacing:'-0.02em', lineHeight:1.2, flex:1 }}>{c.usable_name}</div>
+                    <button onClick={() => setSelectedId(null)} style={{
+                      background:'#ffffff0a', border:'1px solid #ffffff15', borderRadius:6,
+                      color:'#666', cursor:'pointer', width:26, height:26, fontSize:14,
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginLeft:8,
+                    }}>&times;</button>
+                  </div>
+                  <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
+                    <span style={{ fontSize:10, padding:'2px 8px', borderRadius:4, background:`${color}22`, color:color, fontFamily:'Space Mono,monospace', border:`1px solid ${color}33` }}>{getGroupName(c)}</span>
+                    <span style={{ fontSize:10, padding:'2px 8px', borderRadius:4, background:'#ffffff08', color:'#888', fontFamily:'Space Mono,monospace' }}>{c.category}</span>
+                  </div>
+                  <div style={{ fontSize:12, color:'#aaa', lineHeight:1.7, marginBottom:16 }}>{c.merchant_summary}</div>
+                  {c.business_url && (
+                    <a href={c.business_url.startsWith('http') ? c.business_url : 'https://'+c.business_url} target="_blank" rel="noopener noreferrer"
+                      style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, color:color, textDecoration:'none', marginBottom:16, fontWeight:600 }}>
+                      {c.business_url.replace(/^https?:\/\/(www\.)?/,'')} <span style={{ fontSize:9 }}>&#8599;</span>
+                    </a>
+                  )}
+                  <div style={{ borderTop:'1px solid #ffffff0a', paddingTop:14 }}>
+                    {[
+                      ['Revenue Model', c.revenue_model],
+                      ['Operational Model', c.operational_model],
+                      ['Sales Channel', c.sales_channel],
+                      ['Customer Type', c.customer_type],
+                    ].map(([label, val]) => (
+                      <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                        <span style={{ fontSize:10, color:'#555', fontFamily:'Space Mono,monospace', letterSpacing:'0.03em' }}>{label}</span>
+                        <span style={{ fontSize:11, color:'#ccc', fontWeight:500 }}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        <div style={{
+          position:'absolute', bottom:12, left:12,
+          background:'rgba(10,10,20,0.85)', border:'1px solid #ffffff10', borderRadius:10,
+          padding:'10px 14px', backdropFilter:'blur(12px)', pointerEvents:'auto',
+          display:'flex', flexDirection:'column', gap:4,
+        }}>
+          <div style={{ fontSize:9, color:'#3a3a5a', letterSpacing:'0.1em', fontFamily:'Space Mono,monospace', marginBottom:2 }}>
+            {colorBy === 'group' ? 'INDUSTRY' : colorBy.replace(/_/g,' ').toUpperCase()}
+          </div>
+          {(legendVals[colorBy]||[]).map((val, vi) => {
+            let color;
+            if (colorBy === 'group') { const g = groups.find(gr => gr.name === val); color = g ? g.color : '#6B7280'; }
+            else { const h=(vi/(legendVals[colorBy].length))*360; color=`oklch(65% 0.17 ${h})`; }
+            const count = colorBy === 'group'
+              ? (groups.find(gr => gr.name === val) || {}).companies?.length || 0
+              : ALL_COMPANIES.filter(c => c[colorBy]===val).length;
+            const isA = colorBy === 'group' && activeGroup === val;
+            return (
+              <div key={val}
+                onClick={() => colorBy==='group' && setActiveGroup(activeGroup===val?null:val)}
+                style={{ display:'flex', alignItems:'center', gap:7, cursor: colorBy==='group'?'pointer':'default', padding:'2px 0',
+                  opacity: activeGroup && colorBy==='group' && !isA ? 0.25 : 1, transition:'opacity 0.2s' }}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0, border: isA ? '2px solid white' : 'none' }} />
+                <div style={{ flex:1, fontSize:11, fontWeight: isA?700:400, color:'#ccc', whiteSpace:'nowrap' }}>{val}</div>
+                <div style={{ fontSize:9, color:'#3a3a5a', fontFamily:'Space Mono,monospace' }}>{count}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VIZ 8 — Directory Grid (Jacky Winter–style)
+// Colored tabs for category groups · 3-col card grid · generative duotone art
+// ══════════════════════════════════════════════════════════════════════════════
+
+function CardArt({ seed, c1, c2 }) {
+  const r = rng(seed);
+  const els = [];
+  const n = 6 + Math.floor(r() * 5);
+  for (let i = 0; i < n; i++) {
+    const cx = r()*200, cy = r()*150, sz = 20+r()*70;
+    const col = r()>0.45 ? c1 : c2, op = 0.15+r()*0.4;
+    const t = r();
+    if (t < 0.22) {
+      els.push(<circle key={i} cx={cx} cy={cy} r={sz/2} fill={col} opacity={op} />);
+    } else if (t < 0.40) {
+      els.push(<circle key={i} cx={cx} cy={cy} r={sz/2} fill="none" stroke={col} strokeWidth={1.5+r()*3} opacity={op} />);
+    } else if (t < 0.58) {
+      const a = r()*60-30;
+      els.push(<rect key={i} x={cx-sz/2} y={cy-sz/3} width={sz} height={sz*0.6} rx={r()>0.5?8:0} fill={col} opacity={op*0.8} transform={`rotate(${a} ${cx} ${cy})`} />);
+    } else if (t < 0.78) {
+      const x2=cx+(r()-.5)*120, y2=cy+(r()-.5)*80, cpx=cx+(r()-.5)*80, cpy=cy+(r()-.5)*60;
+      els.push(<path key={i} d={`M${cx},${cy} Q${cpx},${cpy} ${x2},${y2}`} fill="none" stroke={col} strokeWidth={2+r()*3} opacity={op} strokeLinecap="round" />);
+    } else {
+      const dots = Array.from({length:5+Math.floor(r()*6)},()=>({x:cx+(r()-.5)*sz, y:cy+(r()-.5)*sz, r:2+r()*5}));
+      els.push(<g key={i} opacity={op}>{dots.map((d,j)=><circle key={j} cx={d.x} cy={d.y} r={d.r} fill={col}/>)}</g>);
+    }
+  }
+  return (
+    <svg viewBox="0 0 200 150" preserveAspectRatio="xMidYMid slice" style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
+      {els}
+    </svg>
+  );
+}
+
+function Viz8_HierarchicalMatrix() {
+  const groups = useMemo(() => buildGroups(), []);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [hoveredId, setHoveredId] = useState(null);
+  const [hoveredTab, setHoveredTab] = useState(null);
+  const TAB_W = 88;
+  const N = groups.length;
+
+  const group = groups[activeIdx];
+  const sections = useMemo(() => {
+    const m = {};
+    group.categories.forEach(cat => { m[cat] = group.companies.filter(c => c.category === cat).sort((a,b) => a.usable_name.localeCompare(b.usable_name)); });
+    return Object.entries(m).filter(([,cs]) => cs.length > 0).sort((a,b) => b[1].length - a[1].length);
+  }, [activeIdx]);
+
+  return (
+    <div style={{ position:'relative', width:'100%', height:'100%', overflow:'hidden', background:'#181818', fontFamily:"'Space Grotesk',sans-serif" }}>
+      {groups.map((g, i) => {
+        const isActive = i === activeIdx;
+        const isLeft = i < activeIdx;
+        const isHovTab = hoveredTab === i && !isActive;
+
+        const pageStyle = isActive ? {
+          left: i * TAB_W,
+          right: (N - 1 - i) * TAB_W,
+          zIndex: N,
+          background: '#f5f3ee',
+        } : isLeft ? {
+          left: i * TAB_W,
+          width: TAB_W,
+          zIndex: i,
+          background: g.color,
+        } : {
+          right: (N - 1 - i) * TAB_W,
+          width: TAB_W,
+          zIndex: N + 1 + (N - i),
+          background: g.color,
+        };
+
+        return (
+          <div key={g.name}
+            onClick={() => !isActive && setActiveIdx(i)}
+            onMouseEnter={() => !isActive && setHoveredTab(i)}
+            onMouseLeave={() => setHoveredTab(null)}
+            style={{
+              position:'absolute', top:0, bottom:0,
+              ...pageStyle,
+              cursor: isActive ? 'default' : 'pointer',
+              borderLeft: '1px solid rgba(0,0,0,0.12)',
+              boxShadow: '-4px 0 16px rgba(0,0,0,0.12)',
+              display:'flex', flexDirection:'column',
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              overflow:'hidden',
+              filter: isHovTab ? 'brightness(1.15)' : 'none',
+            }}>
+
+            {isActive ? (
+              <>
+                <div style={{ padding:'18px 28px', borderBottom:'1px solid #e0dcd4', flexShrink:0, display:'flex', alignItems:'baseline', gap:10 }}>
+                  <span style={{ fontSize:18, fontWeight:800, color:'#1a1814', letterSpacing:'-0.02em' }}>{g.name}</span>
+                  <span style={{ fontSize:11, color:'#999', fontFamily:'Space Mono,monospace' }}>{g.companies.length} companies</span>
+                </div>
+                <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
+                  {sections.map(([cat, companies]) => (
+                    <div key={cat} style={{ marginBottom:44 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#1a1814' }}>{cat}</div>
+                      <div style={{ height:1, background:'#d4d0c8', margin:'8px 0 20px' }} />
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:24 }}>
+                        {companies.map(company => {
+                          const isHov = hoveredId === company.id;
+                          const seed = company.id * 7 + company.usable_name.charCodeAt(0) * 13;
+                          return (
+                            <div key={company.id}
+                              onMouseEnter={() => setHoveredId(company.id)}
+                              onMouseLeave={() => setHoveredId(null)}
+                              style={{ cursor:'pointer' }}>
+                              <div style={{
+                                aspectRatio:'4/3', borderRadius:6, position:'relative', overflow:'hidden',
+                                background:`linear-gradient(135deg, ${g.color}cc, ${g.accent}bb)`,
+                                transform: isHov ? 'scale(1.03)' : 'scale(1)',
+                                boxShadow: isHov ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 6px rgba(0,0,0,0.06)',
+                                transition:'all 0.2s',
+                              }}>
+                                <CardArt seed={seed} c1={g.color} c2={g.accent} />
+                                <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                  <span style={{ fontSize:52, fontWeight:900, color:'rgba(255,255,255,0.2)', fontFamily:'Space Mono,monospace' }}>{company.usable_name[0]}</span>
+                                </div>
+                                {isHov && (
+                                  <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.72)', display:'flex', flexDirection:'column', justifyContent:'flex-end', padding:14 }}>
+                                    <div style={{ fontSize:11, color:'#fff', lineHeight:1.6, marginBottom:6 }}>
+                                      {company.merchant_summary.length > 130 ? company.merchant_summary.slice(0,130)+'…' : company.merchant_summary}
+                                    </div>
+                                    <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                                      {[company.revenue_model, company.operational_model, company.customer_type].map((v,j) => (
+                                        <span key={j} style={{ fontSize:9, padding:'2px 6px', borderRadius:3, background:'rgba(255,255,255,0.14)', color:'rgba(255,255,255,0.85)', fontFamily:'Space Mono,monospace' }}>{v}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ padding:'8px 2px 0', fontSize:13, fontWeight:600, color:'#1a1814' }}>{company.usable_name}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={{ padding:'16px 10px', display:'flex', flexDirection:'column', height:'100%' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textShadow:'0 1px 4px rgba(0,0,0,0.3)' }}>
+                  {g.name}
+                </div>
+                <div style={{ fontSize:10, color:'rgba(255,255,255,0.45)', fontFamily:'Space Mono,monospace', marginTop:4 }}>
+                  {g.companies.length}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ══════════════════════════════════════════════════════════════════════════════
+const VIEWS = [
+  { id: 'latent', label: '3D Latent Space' },
+  { id: 'tiles',  label: 'Tile Matrix' },
+];
+
+function SegmentToggle({ active, onChange }) {
+  return (
+    <div style={{
+      position:'fixed', bottom:20, right:20, zIndex:900,
+      display:'flex', background:'rgba(30,30,30,0.85)', borderRadius:8,
+      border:'1px solid rgba(255,255,255,0.1)', backdropFilter:'blur(16px)',
+      WebkitBackdropFilter:'blur(16px)', padding:3,
+      boxShadow:'0 4px 20px rgba(0,0,0,0.3)',
+    }}>
+      {VIEWS.map(v => (
+        <button key={v.id} onClick={() => onChange(v.id)} style={{
+          padding:'6px 16px', borderRadius:6, border:'none', cursor:'pointer',
+          fontSize:12, fontWeight:600, fontFamily:"'Space Grotesk',sans-serif",
+          letterSpacing:'-0.01em', transition:'all 0.18s',
+          background: active===v.id ? '#f0ede8' : 'transparent',
+          color: active===v.id ? '#0e0e0f' : '#999',
+        }}>{v.label}</button>
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  const [view, setView] = useState('latent');
+  return (
+    <div style={{ width:'100vw', height:'100vh', position:'relative', overflow:'hidden' }}>
+      <SegmentToggle active={view} onChange={setView} />
+      <div style={{ width:'100%', height:'100%' }}>
+        {view === 'latent' ? <Viz7_LatentSpace /> : <Viz8_HierarchicalMatrix />}
+      </div>
+    </div>
+  );
+}
+
+const rootEl = document.getElementById('root');
+rootEl.innerHTML = '<div style="color:#555;font-family:Space Mono,monospace;padding:40px;text-align:center">Loading company data…</div>';
+loadData().then(() => {
+  buildCompanyGroupMap();
+  POINTS_3D = gen3DPositions();
+  ReactDOM.createRoot(rootEl).render(<App />);
+}).catch(err => {
+  rootEl.innerHTML = '<div style="color:#f55;font-family:Space Mono,monospace;padding:40px">Failed to load data: ' + err.message + '</div>';
+});
+</script>
+<div id="root"></div>
+</body>
+</html>
