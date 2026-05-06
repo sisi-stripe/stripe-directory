@@ -1199,11 +1199,13 @@ function Viz_Treemap() {
                         <div style={{ fontSize:9, color:'#3a5a7f', letterSpacing:'0.08em', marginBottom:12 }}>/ SIGNALS</div>
                         {(() => {
                           const acceptsLink = c.id % 3 !== 2;
+                          const acceptsMPP = c.id % 4 !== 3;
                           const growthRate = ((c.id * 7 + 13) % 40 + 5) + '%';
                           const churnRate = ((c.id * 3 + 7) % 12 + 1) + '.' + ((c.id * 11) % 10) + '%';
                           return [
                             ['Stripe Verified', '✓'],
                             ['Accepts Link', acceptsLink ? '✓' : '—'],
+                            ['Accepts MPP', acceptsMPP ? '✓' : '—'],
                             ['Growth Rate', '+' + growthRate + ' MoM'],
                             ['Churn Rate', churnRate],
                           ].map(([sig, val]) => (
